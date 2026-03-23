@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3D AI Environment — Editor & VR Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; }
+  #canvas-container { position: fixed; inset: 0; z-index: 0; }
+
+  /* Mode badge */
+  #mode-badge {
+    position: fixed; top: 12px; left: 16px; z-index: 10;
+    color: rgba(255,255,255,0.75); font-size: 14px; font-weight: 700;
+  }
+  #mode-badge small { display: block; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 400; margin-top: 2px; }
+
+  /* Chat Panel (desktop) */
+  #chat-panel {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: 520px; max-width: 94vw; z-index: 10; display: flex; flex-direction: column; gap: 8px;
+  }
+  #chat-output {
+    background: rgba(15,15,25,0.85); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+    padding: 16px; max-height: 260px; overflow-y: auto;
+    color: #e0e0e0; font-size: 14px; line-height: 1.55;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
+  #chat-output::-webkit-scrollbar { width: 6px; }
+  #chat-output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  .msg { margin-bottom: 10px; animation: fadeIn .25s ease; }
+  .msg:last-child { margin-bottom: 0; }
+  .msg-user { color: #7eb8ff; }
+  .msg-user::before { content: 'You: '; font-weight: 600; }
+  .msg-bot { color: #b8ffb8; }
+  .msg-bot::before { content: 'AI: '; font-weight: 600; }
+  .msg-system { color: #ffd27e; font-style: italic; text-align: center; }
+  .msg-peer { color: #c4a8ff; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+  #chat-input-row { display: flex; gap: 8px; }
+  #chat-input {
+    flex: 1; padding: 12px 16px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(15,15,25,0.85); backdrop-filter: blur(12px);
+    color: #fff; font-size: 14px; outline: none; transition: border-color .2s;
+  }
+  #chat-input:focus { border-color: rgba(120,180,255,0.5); }
+  #chat-input::placeholder { color: rgba(255,255,255,0.35); }
+  #send-btn {
+    padding: 12px 20px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg,#4a7cff,#6a4cff);
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity .2s; white-space: nowrap;
+  }
+  #send-btn:hover { opacity: 0.85; }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Toolbar */
+  #toolbar {
+    position: fixed; top: 12px; right: 16px; z-index: 10;
+    display: flex; gap: 6px; flex-wrap: wrap; max-width: 520px; justify-content: flex-end;
+  }
+  .toolbar-btn {
+    padding: 8px 12px; border-radius: 8px;
+    background: rgba(15,15,25,0.85); backdrop-filter: blur(12px);
+    color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12); transition: background .2s;
+  }
+  .toolbar-btn:hover { background: rgba(60,60,100,0.85); }
+  .toolbar-btn.active { background: rgba(74,124,255,0.6); border-color: rgba(74,124,255,0.8); }
+
+  /* Transform mode buttons */
+  #transform-modes {
+    position: fixed; top: 46px; left: 16px; z-index: 10; display: flex; gap: 4px;
+  }
+
+  /* Light properties */
+  #light-props {
+    position: fixed; top: 54px; right: 16px; z-index: 10;
+    background: rgba(15,15,25,0.92); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    padding: 14px; width: 210px; display: none;
+    color: #e0e0e0; font-size: 13px;
+  }
+  #light-props .prop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  #light-props label { flex-shrink: 0; width: 55px; }
+  #light-props input[type="range"] { flex: 1; }
+  #light-props input[type="color"] { width: 36px; height: 26px; border: none; cursor: pointer; background: none; padding: 0; }
+
+  /* Speech Bubble */
+  #speech-bubble {
+    position: fixed; display: none; max-width: 320px; padding: 12px 16px;
+    background: rgba(255,255,255,0.95); color: #222; border-radius: 14px;
+    font-size: 13px; line-height: 1.5; box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    z-index: 5; cursor: pointer; animation: bubbleIn .3s ease;
+  }
+  #speech-bubble::after {
+    content: ''; position: absolute; bottom: -8px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 8px solid transparent; border-right: 8px solid transparent;
+    border-top: 8px solid rgba(255,255,255,0.95);
+  }
+  @keyframes bubbleIn { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+  .typing-indicator span {
+    display: inline-block; width: 6px; height: 6px; margin: 0 2px;
+    background: #666; border-radius: 50%; animation: bounce 1.2s infinite;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: .2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: .4s; }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-8px)} }
+
+  #file-input { display: none; }
+
+  /* Shortcuts */
+  #shortcuts-hint {
+    position: fixed; bottom: 90px; left: 16px; z-index: 10;
+    color: rgba(255,255,255,0.35); font-size: 11px; line-height: 1.6;
+    pointer-events: none;
+  }
+
+  /* VR overlay (DOM overlay for Quest keyboard) */
+  #vr-overlay {
+    display: none; position: fixed; bottom: 0; left: 0; width: 100%;
+    z-index: 50; padding: 12px;
+  }
+  #vr-chat-container {
+    max-width: 480px; margin: 0 auto;
+    background: rgba(10,10,25,0.92); border-radius: 14px; padding: 12px;
+    border: 1px solid rgba(74,124,255,0.35);
+  }
+  #vr-badge { color: #7eb8ff; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+  #vr-chat-output {
+    max-height: 110px; overflow-y: auto;
+    color: #e0e0e0; font-size: 13px; margin-bottom: 8px; line-height: 1.4;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
+  #vr-input-row { display: flex; gap: 6px; }
+  #vr-chat-input {
+    flex: 1; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.5); color: #fff; font-size: 14px; outline: none;
+  }
+  #vr-send-btn {
+    padding: 10px 16px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg,#4a7cff,#6a4cff);
+    color: #fff; font-weight: 600; cursor: pointer;
+  }
+
+  /* Asset Panel */
+  #asset-panel {
+    position: fixed; top: 54px; left: 16px; z-index: 10;
+    background: rgba(15,15,25,0.92); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    padding: 10px; width: 260px; max-height: 60vh; display: none;
+    color: #e0e0e0; font-size: 12px;
+    overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
+  #asset-panel::-webkit-scrollbar { width: 5px; }
+  #asset-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  #asset-panel .ap-header { font-weight: 700; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  #asset-panel .ap-section { color: rgba(255,255,255,0.45); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px; }
+  .ap-item {
+    display: flex; align-items: center; gap: 6px; padding: 5px 6px;
+    border-radius: 6px; cursor: pointer; transition: background .15s; margin-bottom: 2px;
+  }
+  .ap-item:hover { background: rgba(255,255,255,0.08); }
+  .ap-item.selected { background: rgba(74,124,255,0.3); }
+  .ap-item .ap-icon { flex-shrink: 0; width: 18px; text-align: center; font-size: 13px; }
+  .ap-item .ap-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ap-item .ap-actions { display: flex; gap: 2px; }
+  .ap-item .ap-btn {
+    background: rgba(255,255,255,0.1); border: none; color: #ccc; font-size: 11px;
+    padding: 2px 6px; border-radius: 4px; cursor: pointer;
+  }
+  .ap-item .ap-btn:hover { background: rgba(255,255,255,0.2); }
+  .ap-empty { color: rgba(255,255,255,0.3); font-style: italic; text-align: center; padding: 12px; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="speech-bubble"></div>
+
+<!-- Desktop Mode Badge -->
+<div id="mode-badge">
+  &#x1f5a5;&#xfe0f; Desktop Editor
+  <small id="vr-status">WebXR: checking…</small>
+  <small id="connected-count"></small>
+</div>
+
+<!-- Desktop Toolbar -->
+<div id="toolbar">
+  <button class="toolbar-btn" id="import-btn">&#x1f4e6; Import 3D</button>
+  <button class="toolbar-btn" id="add-dir-light-btn">&#x1f4a1; + Dir Light</button>
+  <button class="toolbar-btn" id="add-point-light-btn">&#x1f506; + Point Light</button>
+  <button class="toolbar-btn" id="delete-btn">&#x1f5d1;&#xfe0f; Delete</button>
+  <button class="toolbar-btn" id="duplicate-btn">&#x1f4cb; Clone</button>
+  <button class="toolbar-btn" id="env-btn">&#x1f305; Env</button>
+  <button class="toolbar-btn" id="snap-btn">&#x1f4d0; Snap</button>
+  <button class="toolbar-btn" id="export-btn">&#x1f4be; Export</button>
+  <button class="toolbar-btn" id="import-scene-btn">&#x1f4c2; Load Scene</button>
+  <button class="toolbar-btn" id="asset-panel-btn">&#x1f4cb; Assets</button>
+  <button class="toolbar-btn" id="undo-btn" title="Undo (⌘Z)">&#x21a9;&#xfe0f; Undo</button>
+  <button class="toolbar-btn" id="redo-btn" title="Redo (⇧⌘Z)">&#x21aa;&#xfe0f; Redo</button>
+</div>
+
+<!-- Transform Mode (desktop) -->
+<div id="transform-modes">
+  <button class="toolbar-btn mode-btn active" data-mode="translate">Move (T)</button>
+  <button class="toolbar-btn mode-btn" data-mode="rotate">Rotate (R)</button>
+  <button class="toolbar-btn mode-btn" data-mode="scale">Scale (S)</button>
+</div>
+
+<!-- Light Properties Panel -->
+<div id="light-props">
+  <div style="font-weight:600;margin-bottom:10px;">&#x1f4a1; Light Properties</div>
+  <div class="prop-row">
+    <label>Color</label>
+    <input type="color" id="light-color" value="#ffffff">
+  </div>
+  <div class="prop-row">
+    <label>Intensity</label>
+    <input type="range" id="light-intensity" min="0" max="10" step="0.1" value="1">
+    <span id="light-intensity-val" style="width:30px;text-align:right;">1.0</span>
+  </div>
+  <button class="toolbar-btn" id="light-delete-btn" style="width:100%;margin-top:6px;">Remove Light</button>
+</div>
+
+<!-- Shortcuts -->
+<div id="shortcuts-hint">
+  T: Move &middot; R: Rotate &middot; S: Scale &middot; Del: Delete &middot; D: Clone &middot; G: Snap &middot; &#x2318;Z: Undo &middot; &#x21e7;&#x2318;Z: Redo
+</div>
+
+<!-- Desktop Chat -->
+<div id="chat-panel">
+  <div id="chat-output">
+    <div class="msg msg-system">Type a message to talk to the AI character.</div>
+  </div>
+  <div id="chat-input-row">
+    <input id="chat-input" type="text" placeholder="Say something…" autocomplete="off" />
+    <button id="send-btn">Send</button>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".glb,.gltf" />
+<input type="file" id="scene-file-input" accept=".glb" style="display:none" />
+
+<!-- Asset Panel -->
+<div id="asset-panel">
+  <div class="ap-header"><span>&#x1f4cb; Scene Assets</span><span id="ap-count"></span></div>
+  <div id="ap-objects-section" class="ap-section">Objects</div>
+  <div id="ap-objects-list"></div>
+  <div class="ap-section">Default Lights</div>
+  <div id="ap-default-lights-list"></div>
+  <div id="ap-lights-section" class="ap-section">User Lights</div>
+  <div id="ap-lights-list"></div>
+</div>
+
+<!-- VR chat overlay (DOM overlay for Quest system keyboard) -->
+<div id="vr-overlay">
+  <div id="vr-chat-container">
+    <div id="vr-badge">&#x1f97d; VR Viewer &mdash; L-stick: Move &middot; R-stick: Turn &middot; Tap input to type</div>
+    <div id="vr-chat-output"></div>
+    <div id="vr-input-row">
+      <input id="vr-chat-input" type="text" placeholder="Tap to type…" inputmode="text" autocomplete="off" />
+      <button id="vr-send-btn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+// ══════════════════════════════════════
+// Scene
+// ══════════════════════════════════════
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+
+const skyCanvas = document.createElement('canvas');
+skyCanvas.width = 2; skyCanvas.height = 256;
+const skyCtx = skyCanvas.getContext('2d');
+
+function drawSkyGradient(stops) {
+  const g = skyCtx.createLinearGradient(0, 0, 0, 256);
+  stops.forEach(([pos, col]) => g.addColorStop(pos, col));
+  skyCtx.fillStyle = g;
+  skyCtx.fillRect(0, 0, 2, 256);
+  scene.background = new THREE.CanvasTexture(skyCanvas);
+}
+drawSkyGradient([[0,'#1a1a3e'],[0.4,'#2d2d6e'],[0.7,'#4a4a8a'],[1,'#7a7ab0']]);
+scene.fog = new THREE.FogExp2(0x2d2d6e, 0.02);
+
+// UUID utility
+function genId() { return crypto.randomUUID(); }
+
+// Prompt username (stored in localStorage)
+const myName = localStorage.getItem('mp_name') || prompt('Enter your display name:', 'User') || 'User';
+localStorage.setItem('mp_name', myName);
+
+// User content group (contains imported objects for export & sync)
+const userContentGroup = new THREE.Group();
+userContentGroup.name = 'UserContent';
+scene.add(userContentGroup);
+
+// WebSocket state
+let ws = null, myUserId = null;
+const myRole = /OculusBrowser|Quest/i.test(navigator.userAgent) ? 'viewer' : 'editor';
+const remoteUsers = new Map();
+const remoteCursors = new Map();
+let lastCursorSend = 0;
+
+function wsSend(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+}
+
+// Camera & Dolly (VR locomotion)
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, 1.6, 4);
+
+const dolly = new THREE.Group();
+dolly.add(camera);
+scene.add(dolly);
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.xr.enabled = true;
+container.appendChild(renderer.domElement);
+
+// VR Button with DOM overlay for Quest keyboard
+const vrOverlay = document.getElementById('vr-overlay');
+const vrSessionInit = {
+  optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers', 'dom-overlay'],
+  domOverlay: { root: vrOverlay }
+};
+document.body.appendChild(VRButton.createButton(renderer, vrSessionInit));
+
+// WebXR check
+const vrStatus = document.getElementById('vr-status');
+if (navigator.xr) {
+  navigator.xr.isSessionSupported('immersive-vr').then(ok => {
+    vrStatus.textContent = ok ? 'WebXR: VR supported \u2713' : 'WebXR: No VR headset detected';
+  });
+} else {
+  vrStatus.textContent = 'WebXR: Not supported in this browser';
+}
+
+// ══════════════════════════════════════
+// OrbitControls (desktop)
+// ══════════════════════════════════════
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.4, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 1.5;
+controls.maxDistance = 15;
+controls.maxPolarAngle = Math.PI / 2 + 0.1;
+controls.update();
+
+// ══════════════════════════════════════
+// TransformControls (desktop gizmo)
+// ══════════════════════════════════════
+const tControls = new TransformControls(camera, renderer.domElement);
+tControls.setSize(0.75);
+scene.add(tControls);
+
+let tDragging = false;
+let tDragBefore = null;
+tControls.addEventListener('dragging-changed', (e) => {
+  controls.enabled = !e.value;
+  tDragging = e.value;
+  if (e.value && selectedObject) {
+    // Capture state at drag start
+    tDragBefore = {
+      position: selectedObject.position.toArray(),
+      quaternion: selectedObject.quaternion.toArray(),
+      scale: selectedObject.scale.toArray(),
+    };
+  }
+  // When drag ends, push undo + send WS
+  if (!e.value && selectedObject) {
+    if (tDragBefore) {
+      pushUndo({
+        type: 'transform',
+        id: selectedObject.userData.id || selectedObject.userData.lightInfo?.id,
+        before: tDragBefore,
+        after: {
+          position: selectedObject.position.toArray(),
+          quaternion: selectedObject.quaternion.toArray(),
+          scale: selectedObject.scale.toArray(),
+        },
+      });
+      tDragBefore = null;
+    }
+    if (selectedObject.userData.lightInfo) {
+      const li = selectedObject.userData.lightInfo;
+      wsSend({ type: 'light_update', id: li.id,
+        color: '#' + li.light.color.getHexString(),
+        intensity: li.light.intensity,
+        position: li.light.position.toArray(),
+      });
+    } else if (selectedObject.userData.id) {
+      wsSend({ type: 'object_transform', id: selectedObject.userData.id,
+        position: selectedObject.position.toArray(),
+        quaternion: selectedObject.quaternion.toArray(),
+        scale: selectedObject.scale.toArray(),
+      });
+    }
+  }
+});
+
+// Sync light position when handle is moved via gizmo
+tControls.addEventListener('objectChange', () => {
+  const obj = tControls.object;
+  if (obj && obj.userData.lightInfo) {
+    const li = obj.userData.lightInfo;
+    li.light.position.copy(obj.position);
+    if (li.helper) li.helper.update();
+  }
+});
+
+// Transform mode buttons
+const modeButtons = document.querySelectorAll('.mode-btn');
+modeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tControls.setMode(btn.dataset.mode);
+  });
+});
+
+// Snap-to-grid
+let snapEnabled = false;
+const SNAP_SIZE = 0.5;
+
+function updateSnap() {
+  if (snapEnabled) {
+    tControls.setTranslationSnap(SNAP_SIZE);
+    tControls.setRotationSnap(Math.PI / 12);
+    tControls.setScaleSnap(0.1);
+  } else {
+    tControls.setTranslationSnap(null);
+    tControls.setRotationSnap(null);
+    tControls.setScaleSnap(null);
+  }
+}
+
+const snapBtn = document.getElementById('snap-btn');
+snapBtn.addEventListener('click', () => {
+  snapEnabled = !snapEnabled;
+  snapBtn.classList.toggle('active', snapEnabled);
+  updateSnap();
+});
+
+// ══════════════════════════════════════
+// Lighting (default scene lights)
+// ══════════════════════════════════════
+const ambientLight = new THREE.AmbientLight(0x6677aa, 0.6);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+dirLight.position.set(5, 8, 4);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024, 1024);
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 20;
+dirLight.shadow.camera.left = -6;
+dirLight.shadow.camera.right = 6;
+dirLight.shadow.camera.top = 6;
+dirLight.shadow.camera.bottom = -6;
+scene.add(dirLight);
+
+const rimLight = new THREE.DirectionalLight(0x8888ff, 0.4);
+rimLight.position.set(-3, 4, -4);
+scene.add(rimLight);
+
+const fillLight = new THREE.PointLight(0xffaa66, 0.3, 10);
+fillLight.position.set(-2, 1, 3);
+scene.add(fillLight);
+
+// Default lights array for asset panel editing
+const defaultLights = [
+  { light: ambientLight, name: 'Ambient', type: 'ambient' },
+  { light: dirLight, name: 'Sun (Dir)', type: 'directional' },
+  { light: rimLight, name: 'Rim (Dir)', type: 'directional' },
+  { light: fillLight, name: 'Fill (Point)', type: 'point' },
+];
+
+// ══════════════════════════════════════
+// Ground
+// ══════════════════════════════════════
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(20, 64),
+  new THREE.MeshStandardMaterial({ color: 0x3a3a5c, roughness: 0.85, metalness: 0.1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(40, 50, 0x555577, 0x444466);
+grid.position.y = 0.005;
+grid.material.transparent = true;
+grid.material.opacity = 0.3;
+scene.add(grid);
+
+// ══════════════════════════════════════
+// Humanoid
+// ══════════════════════════════════════
+const humanoid = new THREE.Group();
+
+const skinMat = new THREE.MeshStandardMaterial({ color: 0xc4956a, roughness: 0.6, metalness: 0.05 });
+const clothMat = new THREE.MeshStandardMaterial({ color: 0x3355aa, roughness: 0.7, metalness: 0.05 });
+const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2a2a44, roughness: 0.8, metalness: 0.05 });
+const shoeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+const pupilMat = new THREE.MeshStandardMaterial({ color: 0x222244, roughness: 0.5 });
+
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 24), skinMat);
+head.position.y = 2.12; head.castShadow = true;
+humanoid.add(head);
+
+const eyeGeo = new THREE.SphereGeometry(0.04, 12, 12);
+const pupilGeo = new THREE.SphereGeometry(0.02, 10, 10);
+for (const side of [-1, 1]) {
+  const eye = new THREE.Mesh(eyeGeo, eyeMat);
+  eye.position.set(side * 0.08, 2.14, 0.18);
+  humanoid.add(eye);
+  const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+  pupil.position.set(side * 0.08, 2.14, 0.22);
+  humanoid.add(pupil);
+}
+
+const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.12, 12), skinMat);
+neck.position.y = 1.86; neck.castShadow = true;
+humanoid.add(neck);
+
+const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.45, 8, 16), clothMat);
+torso.position.y = 1.55; torso.castShadow = true;
+humanoid.add(torso);
+
+const hipsBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.15, 8, 16), pantsMat);
+hipsBody.position.y = 1.15; hipsBody.castShadow = true;
+humanoid.add(hipsBody);
+
+function createLimb(yTop, yMid, yEnd, xOff, upperR, lowerR, upperMat, lowerMat, hasShoe) {
+  const g = new THREE.Group();
+  const upper = new THREE.Mesh(new THREE.CapsuleGeometry(upperR, 0.3, 6, 12), upperMat);
+  upper.position.set(xOff, yTop, 0); upper.castShadow = true; g.add(upper);
+  const lower = new THREE.Mesh(new THREE.CapsuleGeometry(lowerR, 0.28, 6, 12), lowerMat);
+  lower.position.set(xOff, yMid, 0); lower.castShadow = true; g.add(lower);
+  if (hasShoe) {
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.08, 0.22), shoeMat);
+    shoe.position.set(xOff, yEnd, 0.03); shoe.castShadow = true; g.add(shoe);
+  } else {
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), skinMat);
+    hand.position.set(xOff, yEnd, 0); hand.castShadow = true; g.add(hand);
+  }
+  return g;
+}
+humanoid.add(createLimb(1.65, 1.32, 1.12, -0.32, 0.055, 0.045, clothMat, skinMat, false));
+humanoid.add(createLimb(1.65, 1.32, 1.12,  0.32, 0.055, 0.045, clothMat, skinMat, false));
+humanoid.add(createLimb(0.85, 0.42, 0.04, -0.1, 0.07, 0.055, pantsMat, pantsMat, true));
+humanoid.add(createLimb(0.85, 0.42, 0.04,  0.1, 0.07, 0.055, pantsMat, pantsMat, true));
+
+scene.add(humanoid);
+
+// ══════════════════════════════════════
+// 3D Text Sprite (canvas→sprite) for VR
+// ══════════════════════════════════════
+function createTextSprite(text, opts = {}) {
+  const fontSize = opts.fontSize || 28;
+  const maxWidth = opts.maxWidth || 512;
+  const bgColor = opts.bgColor || 'rgba(15,15,30,0.88)';
+  const fgColor = opts.fgColor || '#e0e0e0';
+  const padding = 20;
+
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  ctx.font = `${fontSize}px 'Segoe UI', sans-serif`;
+
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth - padding * 2) {
+      if (line) lines.push(line);
+      line = w;
+    } else line = test;
+  }
+  if (line) lines.push(line);
+  if (!lines.length) lines.push(' ');
+
+  const lineHeight = fontSize * 1.35;
+  c.width = maxWidth;
+  c.height = Math.max(lines.length * lineHeight + padding * 2, 60);
+
+  // Rounded rect background (Quest-compatible, no roundRect API)
+  ctx.fillStyle = bgColor;
+  const r = 16;
+  ctx.beginPath();
+  ctx.moveTo(r, 0); ctx.lineTo(c.width - r, 0);
+  ctx.quadraticCurveTo(c.width, 0, c.width, r);
+  ctx.lineTo(c.width, c.height - r);
+  ctx.quadraticCurveTo(c.width, c.height, c.width - r, c.height);
+  ctx.lineTo(r, c.height);
+  ctx.quadraticCurveTo(0, c.height, 0, c.height - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = fgColor;
+  ctx.font = `${fontSize}px 'Segoe UI', sans-serif`;
+  ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, padding, padding + i * lineHeight));
+
+  const tex = new THREE.CanvasTexture(c);
+  const aspect = c.width / c.height;
+  const h = 0.6;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(h * aspect, h, 1);
+  return sprite;
+}
+
+// 3D chat panel above humanoid
+let chatSprite3D = null;
+const chatHistory3D = [];
+const MAX_3D_LINES = 6;
+
+function update3DChatPanel() {
+  if (chatSprite3D) {
+    scene.remove(chatSprite3D);
+    chatSprite3D.material.map.dispose();
+    chatSprite3D.material.dispose();
+  }
+  const recent = chatHistory3D.slice(-MAX_3D_LINES);
+  const text = recent.join('\n');
+  if (!text) return;
+  chatSprite3D = createTextSprite(text, { fontSize: 22, maxWidth: 600, bgColor: 'rgba(10,10,30,0.85)' });
+  chatSprite3D.position.set(0, 2.85, 0);
+  scene.add(chatSprite3D);
+}
+
+// ══════════════════════════════════════
+// XR Controllers (parented to dolly)
+// ══════════════════════════════════════
+const controllerModelFactory = new XRControllerModelFactory();
+let leftGrip, rightGrip;
+
+function setupController(index) {
+  const ctrl = renderer.xr.getController(index);
+  dolly.add(ctrl);
+  const grip = renderer.xr.getControllerGrip(index);
+  grip.add(controllerModelFactory.createControllerModel(grip));
+  dolly.add(grip);
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -4)
+  ]);
+  ctrl.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x4488ff })));
+  return { ctrl, grip };
+}
+
+const leftSetup = setupController(0);
+const rightSetup = setupController(1);
+const controller1 = leftSetup.ctrl;
+const controller2 = rightSetup.ctrl;
+leftGrip = leftSetup.grip;
+rightGrip = rightSetup.grip;
+
+// ══════════════════════════════════════
+// VR Hand Panel (wrist chat – fallback)
+// ══════════════════════════════════════
+const handPanelCanvas = document.createElement('canvas');
+handPanelCanvas.width = 512; handPanelCanvas.height = 384;
+const handPanelTexture = new THREE.CanvasTexture(handPanelCanvas);
+const handPanel = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.24, 0.18),
+  new THREE.MeshBasicMaterial({ map: handPanelTexture, transparent: true })
+);
+handPanel.position.set(0, 0.06, -0.08);
+handPanel.rotation.x = -Math.PI / 3;
+leftGrip.add(handPanel);
+
+const quickReplies = ['Hello!', 'Tell me more.', "That's interesting.", 'What can you do?', 'Goodbye!'];
+let quickReplyIndex = 0;
+let handPanelDirty = true;
+
+// Quest-compatible rounded rect
+function rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawHandPanel() {
+  const ctx = handPanelCanvas.getContext('2d');
+  const w = handPanelCanvas.width, h = handPanelCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.fillStyle = 'rgba(10,10,30,0.92)';
+  rrect(ctx, 0, 0, w, h, 16); ctx.fill();
+  ctx.strokeStyle = 'rgba(74,124,255,0.5)';
+  ctx.lineWidth = 2;
+  rrect(ctx, 1, 1, w - 2, h - 2, 15); ctx.stroke();
+
+  ctx.fillStyle = '#7eb8ff';
+  ctx.font = 'bold 20px Segoe UI, sans-serif';
+  ctx.fillText('\ud83d\udcac Chat', 16, 30);
+
+  ctx.font = '16px Segoe UI, sans-serif';
+  const recent = chatHistory3D.slice(-5);
+  let y = 56;
+  for (const msg of recent) {
+    ctx.fillStyle = msg.startsWith('You:') ? '#7eb8ff' : '#b8ffb8';
+    const display = msg.length > 45 ? msg.substring(0, 45) + '\u2026' : msg;
+    ctx.fillText(display, 16, y);
+    y += 24;
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath(); ctx.moveTo(16, h - 80); ctx.lineTo(w - 16, h - 80); ctx.stroke();
+
+  ctx.fillStyle = '#ffd27e';
+  ctx.font = 'bold 14px Segoe UI, sans-serif';
+  ctx.fillText('L-Grip: Send | R-Grip: Cycle', 16, h - 58);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '18px Segoe UI, sans-serif';
+  ctx.fillText('\u25b8 ' + quickReplies[quickReplyIndex], 16, h - 32);
+
+  handPanelTexture.needsUpdate = true;
+}
+drawHandPanel();
+
+// ══════════════════════════════════════
+// Imported objects + light handles
+// ══════════════════════════════════════
+const importedObjects = [];
+const userLights = []; // { light, helper, handle, type }
+let selectedObject = null;
+
+// VR grab state
+let grabController = null;
+const grabOffset = new THREE.Matrix4();
+const tempMatrix = new THREE.Matrix4();
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+function collectAllMeshes() {
+  const meshes = [];
+  importedObjects.forEach(o => o.traverse(c => { if (c.isMesh) meshes.push(c); }));
+  userLights.forEach(li => meshes.push(li.handle));
+  return meshes;
+}
+
+function findSelectableRoot(obj) {
+  // Direct light handle
+  for (const li of userLights) {
+    if (li.handle === obj) return li.handle;
+  }
+  // Imported object ancestor
+  let t = obj;
+  while (t) {
+    if (importedObjects.includes(t)) return t;
+    t = t.parent;
+  }
+  return null;
+}
+
+function selectObject(obj) {
+  selectedObject = obj;
+  tControls.attach(obj);
+  if (obj.userData.lightInfo) showLightProps(obj.userData.lightInfo);
+  else hideLightProps();
+  refreshAssetPanel();
+}
+
+function deselectAll() {
+  selectedObject = null;
+  tControls.detach();
+  hideLightProps();
+  refreshAssetPanel();
+}
+
+// ══════════════════════════════════════
+// Desktop click-to-select
+// ══════════════════════════════════════
+let pointerStart = null;
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (renderer.xr.isPresenting) return;
+  pointerStart = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (renderer.xr.isPresenting || tDragging || !pointerStart) return;
+  const dx = e.clientX - pointerStart.x;
+  const dy = e.clientY - pointerStart.y;
+  if (dx * dx + dy * dy > 25) return; // was a drag
+
+  pointer.x = (e.clientX / innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(collectAllMeshes(), true);
+  if (hits.length > 0) {
+    const root = findSelectableRoot(hits[0].object);
+    if (root) selectObject(root);
+  } else {
+    deselectAll();
+  }
+});
+
+// ══════════════════════════════════════
+// VR controller grab
+// ══════════════════════════════════════
+function onSelectStart(event) {
+  const ctrl = event.target;
+  tempMatrix.identity().extractRotation(ctrl.matrixWorld);
+  raycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
+  raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+  const hits = raycaster.intersectObjects(collectAllMeshes(), true);
+  if (hits.length > 0) {
+    const target = findSelectableRoot(hits[0].object);
+    if (target) {
+      grabController = ctrl;
+      selectedObject = target;
+      grabOffset.copy(ctrl.matrixWorld).invert().multiply(target.matrixWorld);
+    }
+  }
+}
+
+function onSelectEnd(event) {
+  if (grabController === event.target) grabController = null;
+}
+
+controller1.addEventListener('selectstart', onSelectStart);
+controller1.addEventListener('selectend', onSelectEnd);
+controller2.addEventListener('selectstart', onSelectStart);
+controller2.addEventListener('selectend', onSelectEnd);
+
+let leftSqueezeWas = false, rightSqueezeWas = false;
+
+// ══════════════════════════════════════
+// Light system
+// ══════════════════════════════════════
+const lightPropsPanel = document.getElementById('light-props');
+const lightColorInput = document.getElementById('light-color');
+const lightIntensityInput = document.getElementById('light-intensity');
+const lightIntensityVal = document.getElementById('light-intensity-val');
+let activeLightInfo = null;
+
+function showLightProps(info) {
+  activeLightInfo = info;
+  lightColorInput.value = '#' + info.light.color.getHexString();
+  lightIntensityInput.value = info.light.intensity;
+  lightIntensityVal.textContent = info.light.intensity.toFixed(1);
+  lightPropsPanel.style.display = 'block';
+  refreshAssetPanel();
+}
+
+function hideLightProps() {
+  activeLightInfo = null;
+  lightPropsPanel.style.display = 'none';
+}
+
+lightColorInput.addEventListener('input', () => {
+  if (!activeLightInfo) return;
+  activeLightInfo.light.color.set(lightColorInput.value);
+  if (activeLightInfo.handle) activeLightInfo.handle.material.color.set(lightColorInput.value);
+  if (activeLightInfo.helper) activeLightInfo.helper.update();
+});
+
+lightIntensityInput.addEventListener('input', () => {
+  if (!activeLightInfo) return;
+  const val = parseFloat(lightIntensityInput.value);
+  activeLightInfo.light.intensity = val;
+  lightIntensityVal.textContent = val.toFixed(1);
+  if (activeLightInfo.helper) activeLightInfo.helper.update();
+});
+
+// Debounced WS update for light property changes
+let lightPropTimer = null;
+function sendLightPropUpdate() {
+  clearTimeout(lightPropTimer);
+  lightPropTimer = setTimeout(() => {
+    if (activeLightInfo && activeLightInfo.id) {
+      wsSend({ type: 'light_update', id: activeLightInfo.id,
+        color: '#' + activeLightInfo.light.color.getHexString(),
+        intensity: activeLightInfo.light.intensity,
+        position: activeLightInfo.light.position.toArray(),
+      });
+    }
+  }, 150);
+}
+lightColorInput.addEventListener('change', sendLightPropUpdate);
+lightIntensityInput.addEventListener('change', sendLightPropUpdate);
+
+document.getElementById('light-delete-btn').addEventListener('click', () => {
+  if (!activeLightInfo) return;
+  pushUndo({ type: 'light_delete', info: activeLightInfo });
+  scene.remove(activeLightInfo.light);
+  if (activeLightInfo.helper) scene.remove(activeLightInfo.helper);
+  scene.remove(activeLightInfo.handle);
+  if (activeLightInfo.light.target) scene.remove(activeLightInfo.light.target);
+  const idx = userLights.indexOf(activeLightInfo);
+  if (idx !== -1) userLights.splice(idx, 1);
+  if (activeLightInfo.id) wsSend({ type: 'light_delete', id: activeLightInfo.id });
+  deselectAll();
+});
+
+function addDirectionalLight(opts = {}) {
+  const id = opts.id || genId();
+  const light = new THREE.DirectionalLight(
+    opts.color ? new THREE.Color(opts.color) : 0xffffff,
+    opts.intensity ?? 1.5
+  );
+  light.position.set(...(opts.position || [3, 5, 3]));
+  light.castShadow = true;
+  light.shadow.mapSize.set(512, 512);
+  light.shadow.camera.near = 0.5;
+  light.shadow.camera.far = 15;
+  light.shadow.camera.left = -5;
+  light.shadow.camera.right = 5;
+  light.shadow.camera.top = 5;
+  light.shadow.camera.bottom = -5;
+  scene.add(light);
+  scene.add(light.target);
+
+  const helper = new THREE.DirectionalLightHelper(light, 0.4);
+  scene.add(helper);
+
+  const handle = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.1),
+    new THREE.MeshBasicMaterial({ color: opts.color ? new THREE.Color(opts.color) : 0xffaa44, wireframe: true })
+  );
+  handle.position.copy(light.position);
+  const info = { light, helper, handle, type: 'directional', id };
+  handle.userData.lightInfo = info;
+  handle.userData.id = id;
+  scene.add(handle);
+  userLights.push(info);
+
+  if (!opts.remote) {
+    pushUndo({ type: 'light_add', info });
+    selectObject(handle);
+    wsSend({ type: 'light_add', light: {
+      id, type: 'directional',
+      color: '#' + light.color.getHexString(),
+      intensity: light.intensity,
+      position: light.position.toArray(),
+    }});
+  }
+  refreshAssetPanel();
+}
+
+function addPointLight(opts = {}) {
+  const id = opts.id || genId();
+  const light = new THREE.PointLight(
+    opts.color ? new THREE.Color(opts.color) : 0xffffff,
+    opts.intensity ?? 2, 15
+  );
+  light.position.set(...(opts.position || [0, 3, 2]));
+  light.castShadow = true;
+  scene.add(light);
+
+  const helper = new THREE.PointLightHelper(light, 0.2);
+  scene.add(helper);
+
+  const handle = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.1),
+    new THREE.MeshBasicMaterial({ color: opts.color ? new THREE.Color(opts.color) : 0xffee44, wireframe: true })
+  );
+  handle.position.copy(light.position);
+  const info = { light, helper, handle, type: 'point', id };
+  handle.userData.lightInfo = info;
+  handle.userData.id = id;
+  scene.add(handle);
+  userLights.push(info);
+
+  if (!opts.remote) {
+    pushUndo({ type: 'light_add', info });
+    selectObject(handle);
+    wsSend({ type: 'light_add', light: {
+      id, type: 'point',
+      color: '#' + light.color.getHexString(),
+      intensity: light.intensity,
+      position: light.position.toArray(),
+    }});
+  }
+  refreshAssetPanel();
+}
+
+document.getElementById('add-dir-light-btn').addEventListener('click', addDirectionalLight);
+document.getElementById('add-point-light-btn').addEventListener('click', addPointLight);
+
+// ══════════════════════════════════════
+// GLB/glTF Asset Import
+// ══════════════════════════════════════
+const gltfLoader = new GLTFLoader();
+
+function normalizeAndPlace(object, pos) {
+  // Force world matrix computation for correct bounding box
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim > 0.001) {
+    const targetSize = Math.min(Math.max(maxDim, 0.5), 3.0);
+    object.scale.multiplyScalar(targetSize / maxDim);
+  }
+  object.updateMatrixWorld(true);
+  const box2 = new THREE.Box3().setFromObject(object);
+  const center = box2.getCenter(new THREE.Vector3());
+  object.position.x += pos.x - center.x;
+  object.position.y += pos.y - box2.min.y;
+  object.position.z += pos.z - center.z;
+  object.traverse(c => {
+    if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
+  });
+}
+
+function loadGLB(url, filename, opts = {}) {
+  gltfLoader.load(url, (gltf) => {
+    const model = gltf.scene;
+    if (!model) { addMessage('Import failed: no scene in file', 'system'); return; }
+    const id = opts.id || genId();
+    model.userData.id = id;
+    model.userData.url = url;
+    model.userData.displayName = filename || url.split('/').pop() || 'Object';
+    if (opts.position && opts.quaternion && opts.scale) {
+      model.position.fromArray(opts.position);
+      model.quaternion.fromArray(opts.quaternion);
+      model.scale.fromArray(opts.scale);
+      model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+    } else {
+      normalizeAndPlace(model, new THREE.Vector3(1.2, 0, 0));
+    }
+    userContentGroup.add(model);
+    importedObjects.push(model);
+    if (!opts.remote) {
+      pushUndo({ type: 'object_add', obj: model });
+      chatHistory3D.push(`[Imported: ${filename}]`);
+      update3DChatPanel();
+      handPanelDirty = true;
+      selectObject(model);
+      wsSend({ type: 'object_add', object: {
+        id, url, position: model.position.toArray(),
+        quaternion: model.quaternion.toArray(), scale: model.scale.toArray(),
+      }});
+    }
+    refreshAssetPanel();
+  },
+  undefined, // progress
+  (err) => {
+    console.error('GLTFLoader error:', err);
+    addMessage('Failed to load model: ' + (err.message || 'unknown error'), 'system');
+  });
+}
+
+const fileInput = document.getElementById('file-input');
+document.getElementById('import-btn').addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'gltf') {
+    // .gltf files reference external .bin + textures that won't be on the server.
+    // Load locally via ObjectURL — works if data is embedded, otherwise warns.
+    const url = URL.createObjectURL(file);
+    gltfLoader.load(url, (gltf) => {
+      const model = gltf.scene;
+      if (!model) { addMessage('Import failed: no scene in file', 'system'); URL.revokeObjectURL(url); return; }
+      const id = genId();
+      model.userData.id = id;
+      model.userData.url = '';
+      model.userData.displayName = file.name;
+      normalizeAndPlace(model, new THREE.Vector3(1.2, 0, 0));
+      userContentGroup.add(model);
+      importedObjects.push(model);
+      pushUndo({ type: 'object_add', obj: model });
+      chatHistory3D.push(`[Imported: ${file.name}]`);
+      update3DChatPanel();
+      handPanelDirty = true;
+      selectObject(model);
+      wsSend({ type: 'object_add', object: {
+        id, url: '', position: model.position.toArray(),
+        quaternion: model.quaternion.toArray(), scale: model.scale.toArray(),
+      }});
+      refreshAssetPanel();
+      addMessage('Loaded ' + file.name + ' (local .gltf — for best results use .glb)', 'system');
+      URL.revokeObjectURL(url);
+    }, undefined, (err) => {
+      URL.revokeObjectURL(url);
+      console.error('GLTF load error:', err);
+      addMessage('Failed to load .gltf: it likely references external files (scene.bin, textures). Please convert to .glb format for full support.', 'system');
+    });
+    fileInput.value = '';
+    return;
+  }
+
+  // .glb — upload to server (self-contained binary)
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (res.ok) loadGLB(data.url, data.name);
+    else addMessage(data.error || 'Upload failed', 'system');
+  } catch (err) {
+    addMessage('Upload error: ' + err.message, 'system');
+  }
+  fileInput.value = '';
+});
+
+// ══════════════════════════════════════
+// World-building: Delete, Duplicate, Env
+// ══════════════════════════════════════
+function deleteSelected() {
+  if (!selectedObject) return;
+  if (selectedObject.userData.lightInfo) {
+    const li = selectedObject.userData.lightInfo;
+    pushUndo({ type: 'light_delete', info: li });
+    scene.remove(li.light);
+    if (li.helper) scene.remove(li.helper);
+    scene.remove(li.handle);
+    if (li.light.target) scene.remove(li.light.target);
+    const idx = userLights.indexOf(li);
+    if (idx !== -1) userLights.splice(idx, 1);
+    if (li.id) wsSend({ type: 'light_delete', id: li.id });
+  } else {
+    pushUndo({ type: 'object_delete', obj: selectedObject });
+    selectedObject.removeFromParent();
+    const idx = importedObjects.indexOf(selectedObject);
+    if (idx !== -1) importedObjects.splice(idx, 1);
+    if (selectedObject.userData.id) wsSend({ type: 'object_delete', id: selectedObject.userData.id });
+  }
+  deselectAll();
+  refreshAssetPanel();
+}
+
+function duplicateSelected() {
+  if (!selectedObject || selectedObject.userData.lightInfo) return;
+  const clone = selectedObject.clone();
+  const id = genId();
+  clone.userData.id = id;
+  clone.position.x += 0.5;
+  clone.position.z += 0.5;
+  userContentGroup.add(clone);
+  importedObjects.push(clone);
+  pushUndo({ type: 'object_add', obj: clone });
+  selectObject(clone);
+  wsSend({ type: 'object_add', object: {
+    id, url: selectedObject.userData.url || '',
+    position: clone.position.toArray(),
+    quaternion: clone.quaternion.toArray(),
+    scale: clone.scale.toArray(),
+  }});
+  refreshAssetPanel();
+}
+
+document.getElementById('delete-btn').addEventListener('click', deleteSelected);
+document.getElementById('duplicate-btn').addEventListener('click', duplicateSelected);
+
+// Environment presets
+const envPresets = [
+  { name: 'Default', sky:[[0,'#1a1a3e'],[0.4,'#2d2d6e'],[0.7,'#4a4a8a'],[1,'#7a7ab0']], fog:0x2d2d6e, fogD:0.02, ambC:0x6677aa, ambI:0.6, dirC:0xffeedd, dirI:1.8, dirP:[5,8,4], exp:1.1 },
+  { name: 'Day', sky:[[0,'#4a90d9'],[0.3,'#6ab0f0'],[0.6,'#87ceeb'],[1,'#b0e0ff']], fog:0x87ceeb, fogD:0.008, ambC:0xaabbdd, ambI:0.8, dirC:0xffffff, dirI:2.2, dirP:[3,12,5], exp:1.3 },
+  { name: 'Sunset', sky:[[0,'#1a1a3e'],[0.3,'#8b3a62'],[0.6,'#d4756b'],[0.85,'#f0a050'],[1,'#f0c878']], fog:0xd4756b, fogD:0.015, ambC:0xaa7755, ambI:0.5, dirC:0xffaa66, dirI:1.6, dirP:[0,3,8], exp:1.0 },
+  { name: 'Night', sky:[[0,'#050510'],[0.4,'#0a0a20'],[0.7,'#101030'],[1,'#151540']], fog:0x0a0a20, fogD:0.03, ambC:0x223344, ambI:0.3, dirC:0x8888cc, dirI:0.6, dirP:[2,6,3], exp:0.7 },
+];
+let envIndex = 0;
+
+function applyEnvPreset(p) {
+  drawSkyGradient(p.sky);
+  scene.fog.color.setHex(p.fog);
+  scene.fog.density = p.fogD;
+  ambientLight.color.setHex(p.ambC);
+  ambientLight.intensity = p.ambI;
+  dirLight.color.setHex(p.dirC);
+  dirLight.intensity = p.dirI;
+  dirLight.position.set(...p.dirP);
+  renderer.toneMappingExposure = p.exp;
+}
+
+document.getElementById('env-btn').addEventListener('click', () => {
+  const oldIndex = envIndex;
+  envIndex = (envIndex + 1) % envPresets.length;
+  applyEnvPreset(envPresets[envIndex]);
+  document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[envIndex].name;
+  pushUndo({ type: 'env_change', oldIndex, newIndex: envIndex });
+  wsSend({ type: 'env_change', envIndex });
+});
+
+// ══════════════════════════════════════
+// Asset Panel
+// ══════════════════════════════════════
+const assetPanel = document.getElementById('asset-panel');
+const assetPanelBtn = document.getElementById('asset-panel-btn');
+const apObjectsList = document.getElementById('ap-objects-list');
+const apLightsList = document.getElementById('ap-lights-list');
+const apCount = document.getElementById('ap-count');
+
+assetPanelBtn.addEventListener('click', () => {
+  const vis = assetPanel.style.display !== 'block';
+  assetPanel.style.display = vis ? 'block' : 'none';
+  assetPanelBtn.classList.toggle('active', vis);
+  if (vis) refreshAssetPanel();
+});
+
+function focusOnObject(obj) {
+  obj.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(obj);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 0.5);
+  const dist = maxDim * 2.5;
+  const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+  camera.position.copy(center).addScaledVector(dir, dist);
+  controls.target.copy(center);
+  controls.update();
+}
+
+function refreshAssetPanel() {
+  if (assetPanel.style.display !== 'block') return;
+  const total = importedObjects.length + userLights.length + defaultLights.length;
+  apCount.textContent = total + ' item' + (total !== 1 ? 's' : '');
+
+  // Objects
+  apObjectsList.innerHTML = '';
+  if (importedObjects.length === 0) {
+    apObjectsList.innerHTML = '<div class="ap-empty">No objects yet</div>';
+  } else {
+    for (const obj of importedObjects) {
+      const name = obj.userData.displayName || obj.name || 'Object';
+      const isSel = obj === selectedObject;
+      const div = document.createElement('div');
+      div.className = 'ap-item' + (isSel ? ' selected' : '');
+      div.innerHTML = `<span class="ap-icon">\ud83d\udce6</span><span class="ap-name" title="${name}">${name}</span>` +
+        `<span class="ap-actions"><button class="ap-btn" data-action="focus" title="Focus camera">\ud83d\udd0d</button></span>`;
+      div.addEventListener('click', (e) => {
+        if (e.target.dataset.action === 'focus') { focusOnObject(obj); return; }
+        selectObject(obj);
+      });
+      apObjectsList.appendChild(div);
+    }
+  }
+
+  // Default lights
+  const apDefaultLightsList = document.getElementById('ap-default-lights-list');
+  apDefaultLightsList.innerHTML = '';
+  for (const dl of defaultLights) {
+    const inScene = dl.light.parent !== null;
+    const colorHex = '#' + dl.light.color.getHexString();
+    const isSel = activeLightInfo === dl;
+    const div = document.createElement('div');
+    div.className = 'ap-item' + (isSel ? ' selected' : '');
+    div.style.opacity = inScene ? '1' : '0.4';
+    div.innerHTML = `<span class="ap-icon" style="color:${colorHex}">\u25cf</span>` +
+      `<span class="ap-name">${dl.name} (${dl.light.intensity.toFixed(1)})</span>` +
+      `<span class="ap-actions">` +
+      (inScene ? `<button class="ap-btn" data-action="delete" title="Remove">\u2716</button>` :
+                 `<button class="ap-btn" data-action="restore" title="Restore">\u2795</button>`) +
+      `</span>`;
+    div.addEventListener('click', (e) => {
+      const action = e.target.dataset?.action;
+      if (action === 'delete') {
+        pushUndo({ type: 'default_light_remove', dl, intensity: dl.light.intensity, color: '#' + dl.light.color.getHexString() });
+        scene.remove(dl.light);
+        if (activeLightInfo === dl) { hideLightProps(); deselectAll(); }
+        refreshAssetPanel();
+        return;
+      }
+      if (action === 'restore') {
+        pushUndo({ type: 'default_light_add', dl });
+        scene.add(dl.light);
+        refreshAssetPanel();
+        return;
+      }
+      if (inScene) {
+        activeLightInfo = dl;
+        lightColorInput.value = colorHex;
+        lightIntensityInput.value = dl.light.intensity;
+        lightIntensityVal.textContent = dl.light.intensity.toFixed(1);
+        lightPropsPanel.style.display = 'block';
+        refreshAssetPanel();
+      }
+    });
+    apDefaultLightsList.appendChild(div);
+  }
+
+  // User lights
+  apLightsList.innerHTML = '';
+  if (userLights.length === 0) {
+    apLightsList.innerHTML = '<div class="ap-empty">No user lights</div>';
+  } else {
+    for (const li of userLights) {
+      const name = (li.type === 'directional' ? 'Dir Light' : 'Point Light');
+      const isSel = li.handle === selectedObject;
+      const colorHex = '#' + li.light.color.getHexString();
+      const div = document.createElement('div');
+      div.className = 'ap-item' + (isSel ? ' selected' : '');
+      div.innerHTML = `<span class="ap-icon" style="color:${colorHex}">\u25cf</span><span class="ap-name">${name} (${li.light.intensity.toFixed(1)})</span>` +
+        `<span class="ap-actions"><button class="ap-btn" data-action="focus" title="Focus camera">\ud83d\udd0d</button></span>`;
+      div.addEventListener('click', (e) => {
+        if (e.target.dataset.action === 'focus') { focusOnObject(li.handle); return; }
+        selectObject(li.handle);
+      });
+      apLightsList.appendChild(div);
+    }
+  }
+}
+
+// ══════════════════════════════════════
+// Undo / Redo System
+// ══════════════════════════════════════
+const undoStack = [];
+const redoStack = [];
+const MAX_UNDO = 50;
+
+function pushUndo(action) {
+  undoStack.push(action);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack.length = 0;
+  updateUndoButtons();
+}
+
+function updateUndoButtons() {
+  document.getElementById('undo-btn').style.opacity = undoStack.length ? '1' : '0.4';
+  document.getElementById('redo-btn').style.opacity = redoStack.length ? '1' : '0.4';
+}
+updateUndoButtons();
+
+function captureObjectState(obj) {
+  return {
+    position: obj.position.toArray(),
+    quaternion: obj.quaternion.toArray(),
+    scale: obj.scale.toArray(),
+  };
+}
+
+function applyObjectState(obj, state) {
+  obj.position.fromArray(state.position);
+  obj.quaternion.fromArray(state.quaternion);
+  obj.scale.fromArray(state.scale);
+}
+
+function performUndo() {
+  if (!undoStack.length) return;
+  const action = undoStack.pop();
+  redoStack.push(action);
+  applyAction(action, false);
+  updateUndoButtons();
+  refreshAssetPanel();
+}
+
+function performRedo() {
+  if (!redoStack.length) return;
+  const action = redoStack.pop();
+  undoStack.push(action);
+  applyAction(action, true);
+  updateUndoButtons();
+  refreshAssetPanel();
+}
+
+function applyAction(action, isRedo) {
+  switch (action.type) {
+    case 'transform': {
+      const obj = importedObjects.find(o => o.userData.id === action.id) ||
+                  userLights.find(l => l.id === action.id)?.handle;
+      if (!obj) break;
+      const current = captureObjectState(obj);
+      applyObjectState(obj, isRedo ? action.after : action.before);
+      if (isRedo) action.before = current; else action.after = current;
+      if (obj.userData.lightInfo) {
+        const li = obj.userData.lightInfo;
+        li.light.position.copy(obj.position);
+        if (li.helper) li.helper.update();
+      }
+      break;
+    }
+    case 'object_add': {
+      if (isRedo) {
+        // Re-add
+        userContentGroup.add(action.obj);
+        importedObjects.push(action.obj);
+      } else {
+        // Remove
+        action.obj.removeFromParent();
+        const idx = importedObjects.indexOf(action.obj);
+        if (idx !== -1) importedObjects.splice(idx, 1);
+        if (selectedObject === action.obj) deselectAll();
+      }
+      break;
+    }
+    case 'object_delete': {
+      if (isRedo) {
+        // Re-delete
+        action.obj.removeFromParent();
+        const idx = importedObjects.indexOf(action.obj);
+        if (idx !== -1) importedObjects.splice(idx, 1);
+        if (selectedObject === action.obj) deselectAll();
+      } else {
+        // Restore
+        userContentGroup.add(action.obj);
+        importedObjects.push(action.obj);
+      }
+      break;
+    }
+    case 'light_add': {
+      if (isRedo) {
+        scene.add(action.info.light);
+        if (action.info.light.target) scene.add(action.info.light.target);
+        if (action.info.helper) scene.add(action.info.helper);
+        scene.add(action.info.handle);
+        userLights.push(action.info);
+      } else {
+        scene.remove(action.info.light);
+        if (action.info.helper) scene.remove(action.info.helper);
+        scene.remove(action.info.handle);
+        if (action.info.light.target) scene.remove(action.info.light.target);
+        const idx = userLights.indexOf(action.info);
+        if (idx !== -1) userLights.splice(idx, 1);
+        if (selectedObject === action.info.handle) deselectAll();
+      }
+      break;
+    }
+    case 'light_delete': {
+      if (isRedo) {
+        scene.remove(action.info.light);
+        if (action.info.helper) scene.remove(action.info.helper);
+        scene.remove(action.info.handle);
+        if (action.info.light.target) scene.remove(action.info.light.target);
+        const idx = userLights.indexOf(action.info);
+        if (idx !== -1) userLights.splice(idx, 1);
+        if (selectedObject === action.info.handle) deselectAll();
+      } else {
+        scene.add(action.info.light);
+        if (action.info.light.target) scene.add(action.info.light.target);
+        if (action.info.helper) scene.add(action.info.helper);
+        scene.add(action.info.handle);
+        userLights.push(action.info);
+      }
+      break;
+    }
+    case 'default_light_remove': {
+      if (isRedo) {
+        scene.remove(action.dl.light);
+      } else {
+        scene.add(action.dl.light);
+        action.dl.light.color.set(action.color);
+        action.dl.light.intensity = action.intensity;
+      }
+      break;
+    }
+    case 'default_light_add': {
+      if (isRedo) {
+        scene.add(action.dl.light);
+      } else {
+        scene.remove(action.dl.light);
+      }
+      break;
+    }
+    case 'env_change': {
+      const target = isRedo ? action.newIndex : action.oldIndex;
+      envIndex = target;
+      applyEnvPreset(envPresets[envIndex]);
+      document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[envIndex].name;
+      break;
+    }
+  }
+}
+
+document.getElementById('undo-btn').addEventListener('click', performUndo);
+document.getElementById('redo-btn').addEventListener('click', performRedo);
+
+// ══════════════════════════════════════
+// Keyboard shortcuts (desktop)
+// ══════════════════════════════════════
+const chatInput = document.getElementById('chat-input');
+
+addEventListener('keydown', (e) => {
+  // Undo/Redo: Cmd+Z / Shift+Cmd+Z (works even in inputs)
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) performRedo(); else performUndo();
+    return;
+  }
+  if (e.target === chatInput || e.target.id === 'vr-chat-input') return;
+  switch (e.key) {
+    case 't': case 'T':
+      tControls.setMode('translate');
+      modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === 'translate'));
+      break;
+    case 'r':
+      if (e.ctrlKey || e.metaKey) break;
+      tControls.setMode('rotate');
+      modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === 'rotate'));
+      break;
+    case 's':
+      if (e.ctrlKey || e.metaKey) break;
+      tControls.setMode('scale');
+      modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === 'scale'));
+      break;
+    case 'Delete': case 'Backspace':
+      if (e.target.tagName === 'INPUT') break;
+      deleteSelected(); break;
+    case 'd': case 'D':
+      if (e.ctrlKey || e.metaKey) break;
+      duplicateSelected(); break;
+    case 'g': case 'G':
+      snapEnabled = !snapEnabled;
+      snapBtn.classList.toggle('active', snapEnabled);
+      updateSnap();
+      break;
+  }
+});
+
+// ══════════════════════════════════════
+// VR Locomotion
+// ══════════════════════════════════════
+let snapTurnReady = true;
+const SNAP_TURN_ANGLE = Math.PI / 6;
+const MOVE_SPEED = 0.04;
+
+// ══════════════════════════════════════
+// Animation / Render Loop
+// ══════════════════════════════════════
+let isTalking = false, talkTimer = 0;
+function setTalking(val) { isTalking = val; if (val) talkTimer = 0; }
+const clock = new THREE.Clock();
+
+const speechBubble = document.getElementById('speech-bubble');
+speechBubble.addEventListener('click', () => { speechBubble.style.display = 'none'; });
+const bubbleWorldPos = new THREE.Vector3();
+
+function updateSpeechBubblePosition() {
+  if (renderer.xr.isPresenting) { speechBubble.style.display = 'none'; return; }
+  if (speechBubble.style.display === 'none' || speechBubble.style.display === '') return;
+  bubbleWorldPos.set(0, 2.6, 0).project(camera);
+  const x = (bubbleWorldPos.x * 0.5 + 0.5) * innerWidth;
+  const y = (-bubbleWorldPos.y * 0.5 + 0.5) * innerHeight;
+  speechBubble.style.left = x + 'px';
+  speechBubble.style.top = (y - 20) + 'px';
+  speechBubble.style.transform = 'translate(-50%, -100%)';
+}
+
+function showSpeechBubble(text, dur = 5000) {
+  speechBubble.textContent = text.length > 120 ? text.substring(0, 120) + '\u2026' : text;
+  speechBubble.style.display = 'block';
+  updateSpeechBubblePosition();
+  clearTimeout(speechBubble._t);
+  speechBubble._t = setTimeout(() => { speechBubble.style.display = 'none'; }, dur);
+}
+
+function showTypingBubble() {
+  speechBubble.innerHTML = '<span class="typing-indicator"><span></span><span></span><span></span></span>';
+  speechBubble.style.display = 'block';
+  updateSpeechBubblePosition();
+}
+
+// ── Main render loop ──
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+
+  // Humanoid idle
+  humanoid.position.y = Math.sin(t * 1.5) * 0.008;
+  head.rotation.x = Math.sin(t * 0.8) * 0.03;
+  head.rotation.y = Math.sin(t * 0.5) * 0.05;
+
+  if (isTalking) {
+    talkTimer += 0.05;
+    head.rotation.x += Math.sin(talkTimer * 3) * 0.04;
+    head.rotation.z = Math.sin(talkTimer * 2.5) * 0.03;
+    humanoid.rotation.y = Math.sin(talkTimer * 1.2) * 0.02;
+  } else {
+    humanoid.rotation.y *= 0.95;
+    head.rotation.z *= 0.95;
+  }
+
+  humanoid.children.forEach(child => {
+    if (child.isGroup) child.children.forEach(part => {
+      if (part.position.y > 1 && part.position.y < 1.7)
+        part.rotation.x = Math.sin(t * 0.7 + part.position.x) * 0.02;
+    });
+  });
+
+  // ── VR: Locomotion + squeeze ──
+  if (renderer.xr.isPresenting) {
+    const session = renderer.xr.getSession();
+    if (session) {
+      for (const source of session.inputSources) {
+        if (!source.gamepad) continue;
+        const axes = source.gamepad.axes;
+        const buttons = source.gamepad.buttons;
+        const axisX = axes.length >= 4 ? axes[2] : 0;
+        const axisY = axes.length >= 4 ? axes[3] : 0;
+        const squeezePressed = buttons.length > 1 && buttons[1].pressed;
+
+        if (source.handedness === 'left') {
+          if (grabController !== controller1) {
+            if (Math.abs(axisX) > 0.15 || Math.abs(axisY) > 0.15) {
+              const forward = new THREE.Vector3();
+              camera.getWorldDirection(forward);
+              forward.y = 0; forward.normalize();
+              const rightDir = new THREE.Vector3();
+              rightDir.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+              dolly.position.addScaledVector(forward, -axisY * MOVE_SPEED);
+              dolly.position.addScaledVector(rightDir, axisX * MOVE_SPEED);
+            }
+          }
+          if (squeezePressed && !leftSqueezeWas) sendQuickReply();
+          leftSqueezeWas = squeezePressed;
+        }
+
+        if (source.handedness === 'right') {
+          if (grabController !== controller2) {
+            if (Math.abs(axisX) > 0.5 && snapTurnReady) {
+              dolly.rotation.y -= Math.sign(axisX) * SNAP_TURN_ANGLE;
+              snapTurnReady = false;
+            }
+            if (Math.abs(axisX) < 0.3) snapTurnReady = true;
+          }
+          if (squeezePressed && !rightSqueezeWas) {
+            quickReplyIndex = (quickReplyIndex + 1) % quickReplies.length;
+            handPanelDirty = true;
+          }
+          rightSqueezeWas = squeezePressed;
+        }
+      }
+    }
+    if (handPanelDirty) { drawHandPanel(); handPanelDirty = false; }
+  }
+
+  // VR grab (objects + light handles)
+  if (grabController && selectedObject) {
+    selectedObject.matrixAutoUpdate = false;
+    selectedObject.matrix.copy(grabController.matrixWorld).multiply(grabOffset);
+    selectedObject.matrix.decompose(selectedObject.position, selectedObject.quaternion, selectedObject.scale);
+    selectedObject.matrixAutoUpdate = true;
+    // Sync light if it's a light handle
+    if (selectedObject.userData.lightInfo) {
+      const li = selectedObject.userData.lightInfo;
+      li.light.position.copy(selectedObject.position);
+      if (li.helper) li.helper.update();
+    }
+  }
+
+  if (!renderer.xr.isPresenting) {
+    controls.update();
+    updateSpeechBubblePosition();
+  }
+
+  // Send cursor position at ~10Hz
+  const now = performance.now();
+  if (now - lastCursorSend > 100) {
+    lastCursorSend = now;
+    const cp = new THREE.Vector3();
+    camera.getWorldPosition(cp);
+    const cq = new THREE.Quaternion();
+    camera.getWorldQuaternion(cq);
+    wsSend({ type: 'user_move', position: cp.toArray(), quaternion: [cq.x, cq.y, cq.z, cq.w] });
+  }
+
+  // Lerp remote cursors
+  for (const [, cur] of remoteCursors) {
+    cur.mesh.position.lerp(cur.targetPos, 0.15);
+    cur.mesh.quaternion.slerp(cur.targetQuat, 0.15);
+  }
+
+  renderer.render(scene, camera);
+});
+
+// ══════════════════════════════════════
+// Chat (desktop + VR overlay)
+// ══════════════════════════════════════
+const chatOutput = document.getElementById('chat-output');
+const sendBtn = document.getElementById('send-btn');
+const vrChatOutput = document.getElementById('vr-chat-output');
+const vrChatInput = document.getElementById('vr-chat-input');
+const vrSendBtn = document.getElementById('vr-send-btn');
+
+function addMessage(text, type = 'bot') {
+  // Desktop chat panel
+  const div = document.createElement('div');
+  div.className = `msg msg-${type}`;
+  div.textContent = text;
+  chatOutput.appendChild(div);
+  chatOutput.scrollTop = chatOutput.scrollHeight;
+
+  // VR overlay chat panel
+  const vrDiv = document.createElement('div');
+  vrDiv.style.color = type === 'user' ? '#7eb8ff' : type === 'bot' ? '#b8ffb8' : type === 'peer' ? '#c4a8ff' : '#ffd27e';
+  vrDiv.style.marginBottom = '4px';
+  const prefix = type === 'user' ? 'You: ' : type === 'bot' ? 'AI: ' : '';
+  vrDiv.textContent = prefix + text;
+  vrChatOutput.appendChild(vrDiv);
+  vrChatOutput.scrollTop = vrChatOutput.scrollHeight;
+
+  // 3D sprite panel
+  chatHistory3D.push((type === 'peer' ? '' : prefix) + (text.length > 80 ? text.substring(0, 80) + '\u2026' : text));
+  update3DChatPanel();
+
+  // Wrist panel
+  handPanelDirty = true;
+}
+
+async function sendMessage(textArg) {
+  let text;
+  if (typeof textArg === 'string' && textArg.trim()) {
+    text = textArg.trim();
+  } else {
+    text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = '';
+  }
+  addMessage(text, 'user');
+  wsSend({ type: 'chat', chatType: 'user', text, name: myName });
+  sendBtn.disabled = true; chatInput.disabled = true;
+  showTypingBubble(); setTalking(true);
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      addMessage(data.reply, 'bot');
+      showSpeechBubble(data.reply, 6000);
+      wsSend({ type: 'chat', chatType: 'bot', text: data.reply });
+    } else {
+      addMessage(data.reply || 'Something went wrong.', 'system');
+      speechBubble.style.display = 'none';
+    }
+  } catch (err) {
+    addMessage('Network error. Is the server running?', 'system');
+    speechBubble.style.display = 'none';
+  } finally {
+    sendBtn.disabled = false; chatInput.disabled = false;
+    chatInput.focus(); setTalking(false);
+  }
+}
+
+function sendQuickReply() {
+  sendMessage(quickReplies[quickReplyIndex]);
+}
+
+sendBtn.addEventListener('click', () => sendMessage());
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// VR overlay send
+vrSendBtn.addEventListener('click', () => {
+  const text = vrChatInput.value.trim();
+  if (!text) return;
+  vrChatInput.value = '';
+  sendMessage(text);
+});
+vrChatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault();
+    const text = vrChatInput.value.trim();
+    if (!text) return;
+    vrChatInput.value = '';
+    sendMessage(text);
+  }
+});
+
+// ══════════════════════════════════════
+// VR session — position dolly, hide/show UI
+// ══════════════════════════════════════
+renderer.xr.addEventListener('sessionstart', () => {
+  dolly.position.set(0, 0, 3);
+  dolly.rotation.set(0, 0, 0);
+  camera.position.set(0, 0, 0);
+  controls.enabled = false;
+  tControls.detach();
+
+  // Hide desktop UI
+  document.getElementById('chat-panel').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('transform-modes').style.display = 'none';
+  document.getElementById('shortcuts-hint').style.display = 'none';
+  document.getElementById('mode-badge').style.display = 'none';
+  assetPanel.style.display = 'none';
+  hideLightProps();
+  speechBubble.style.display = 'none';
+
+  // Show VR overlay
+  vrOverlay.style.display = 'block';
+  handPanelDirty = true;
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+  camera.position.set(0, 1.6, 4);
+  dolly.position.set(0, 0, 0);
+  dolly.rotation.set(0, 0, 0);
+  controls.enabled = true;
+
+  // Show desktop UI
+  document.getElementById('chat-panel').style.display = 'flex';
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('transform-modes').style.display = 'flex';
+  document.getElementById('shortcuts-hint').style.display = 'block';
+  document.getElementById('mode-badge').style.display = 'block';
+
+  // Hide VR overlay
+  vrOverlay.style.display = 'none';
+});
+
+// ══════════════════════════════════════
+// WebSocket Multiplayer
+// ══════════════════════════════════════
+function createCursorMesh(name, color) {
+  const group = new THREE.Group();
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.06, 0.18, 8),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  cone.rotation.x = Math.PI;
+  group.add(cone);
+  // Name label
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(name, 128, 42);
+  const tex = new THREE.CanvasTexture(canvas);
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  label.scale.set(0.5, 0.125, 1);
+  label.position.y = 0.2;
+  group.add(label);
+  scene.add(group);
+  return group;
+}
+
+function updateConnectedCount(count) {
+  const n = count ?? (remoteUsers.size + 1);
+  document.getElementById('connected-count').textContent = n + ' connected';
+}
+
+function updateCursor(userId, msg) {
+  let cur = remoteCursors.get(userId);
+  if (!cur) {
+    const info = remoteUsers.get(userId) || { name: userId.slice(0, 4), color: '#ffffff' };
+    cur = {
+      mesh: createCursorMesh(info.name, info.color),
+      targetPos: new THREE.Vector3(),
+      targetQuat: new THREE.Quaternion(),
+    };
+    remoteCursors.set(userId, cur);
+  }
+  if (msg.position) cur.targetPos.fromArray(msg.position);
+  if (msg.quaternion) cur.targetQuat.fromArray(msg.quaternion);
+}
+
+function removeCursor(userId) {
+  const cur = remoteCursors.get(userId);
+  if (cur) {
+    scene.remove(cur.mesh);
+    remoteCursors.delete(userId);
+  }
+}
+
+function applyRemoteTransform(msg) {
+  const obj = importedObjects.find(o => o.userData.id === msg.id);
+  if (!obj) return;
+  if (msg.position) obj.position.fromArray(msg.position);
+  if (msg.quaternion) obj.quaternion.fromArray(msg.quaternion);
+  if (msg.scale) obj.scale.fromArray(msg.scale);
+}
+
+function removeRemoteObject(id) {
+  const idx = importedObjects.findIndex(o => o.userData.id === id);
+  if (idx === -1) return;
+  const obj = importedObjects[idx];
+  obj.removeFromParent();
+  importedObjects.splice(idx, 1);
+  if (selectedObject === obj) deselectAll();
+  refreshAssetPanel();
+}
+
+function applyRemoteLightUpdate(msg) {
+  const li = userLights.find(l => l.id === msg.id);
+  if (!li) return;
+  if (msg.color) { li.light.color.set(msg.color); li.handle.material.color.set(msg.color); }
+  if (msg.intensity !== undefined) li.light.intensity = msg.intensity;
+  if (msg.position) { li.light.position.fromArray(msg.position); li.handle.position.fromArray(msg.position); }
+  if (li.helper) li.helper.update();
+}
+
+function removeRemoteLight(id) {
+  const idx = userLights.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  const li = userLights[idx];
+  scene.remove(li.light);
+  if (li.helper) scene.remove(li.helper);
+  scene.remove(li.handle);
+  if (li.light.target) scene.remove(li.light.target);
+  userLights.splice(idx, 1);
+  if (selectedObject === li.handle) deselectAll();
+  refreshAssetPanel();
+}
+
+function reconstructScene(state) {
+  if (!state) return;
+  for (const obj of Object.values(state.objects)) {
+    loadGLB(obj.url, 'synced', {
+      id: obj.id, position: obj.position,
+      quaternion: obj.quaternion, scale: obj.scale, remote: true,
+    });
+  }
+  for (const li of Object.values(state.lights)) {
+    if (li.type === 'directional') addDirectionalLight({ ...li, remote: true });
+    else addPointLight({ ...li, remote: true });
+  }
+  if (state.envIndex !== undefined && state.envIndex !== envIndex) {
+    envIndex = state.envIndex;
+    applyEnvPreset(envPresets[envIndex]);
+    document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[envIndex].name;
+  }
+}
+
+function handleWSMessage(msg) {
+  switch (msg.type) {
+    case 'welcome':
+      myUserId = msg.userId;
+      for (const [uid, info] of Object.entries(msg.users)) {
+        if (uid !== myUserId) remoteUsers.set(uid, info);
+      }
+      updateConnectedCount(Object.keys(msg.users).length);
+      reconstructScene(msg.sceneState);
+      break;
+    case 'user_join':
+      remoteUsers.set(msg.userId, { name: msg.name, color: msg.color, role: msg.role });
+      updateConnectedCount();
+      addMessage(msg.name + ' joined', 'system');
+      break;
+    case 'user_leave': {
+      const leaveName = remoteUsers.get(msg.userId)?.name || 'Someone';
+      remoteUsers.delete(msg.userId);
+      removeCursor(msg.userId);
+      updateConnectedCount();
+      addMessage(leaveName + ' left', 'system');
+      break;
+    }
+    case 'user_move':
+      updateCursor(msg.userId, msg);
+      break;
+    case 'object_add':
+      if (msg.object) loadGLB(msg.object.url, 'remote', {
+        id: msg.object.id, position: msg.object.position,
+        quaternion: msg.object.quaternion, scale: msg.object.scale, remote: true,
+      });
+      break;
+    case 'object_transform':
+      applyRemoteTransform(msg);
+      break;
+    case 'object_delete':
+      removeRemoteObject(msg.id);
+      break;
+    case 'light_add':
+      if (msg.light) {
+        if (msg.light.type === 'directional') addDirectionalLight({ ...msg.light, remote: true });
+        else addPointLight({ ...msg.light, remote: true });
+      }
+      break;
+    case 'light_update':
+      applyRemoteLightUpdate(msg);
+      break;
+    case 'light_delete':
+      removeRemoteLight(msg.id);
+      break;
+    case 'env_change':
+      envIndex = msg.envIndex;
+      applyEnvPreset(envPresets[envIndex]);
+      document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[envIndex].name;
+      break;
+    case 'chat':
+      if (msg.chatType === 'user' && msg.name) {
+        addMessage(msg.name + ': ' + msg.text, 'peer');
+      } else if (msg.chatType === 'bot' && msg.text) {
+        addMessage(msg.text, 'bot');
+        showSpeechBubble(msg.text, 6000);
+      } else if (msg.text) {
+        addMessage(msg.text, 'system');
+      }
+      break;
+  }
+}
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws?name=' + encodeURIComponent(myName) + '&role=' + myRole);
+  ws.onopen = () => updateConnectedCount();
+  ws.onmessage = (e) => { try { handleWSMessage(JSON.parse(e.data)); } catch {} };
+  ws.onclose = () => {
+    document.getElementById('connected-count').textContent = 'Reconnecting\u2026';
+    setTimeout(connectWS, 2000);
+  };
+  ws.onerror = () => ws.close();
+}
+connectWS();
+
+// ══════════════════════════════════════
+// Scene Export / Import
+// ══════════════════════════════════════
+document.getElementById('export-btn').addEventListener('click', async () => {
+  const exporter = new GLTFExporter();
+  try {
+    const data = await exporter.parseAsync(userContentGroup, { binary: true });
+    const blob = new Blob([data], { type: 'application/octet-stream' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scene.glb';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    addMessage('Scene exported as scene.glb', 'system');
+  } catch (err) {
+    addMessage('Export failed: ' + err.message, 'system');
+  }
+});
+
+const sceneFileInput = document.getElementById('scene-file-input');
+document.getElementById('import-scene-btn').addEventListener('click', () => sceneFileInput.click());
+sceneFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  gltfLoader.load(url, (gltf) => {
+    for (const child of [...gltf.scene.children]) {
+      const id = genId();
+      child.userData.id = id;
+      child.userData.url = '';
+      child.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      userContentGroup.add(child);
+      importedObjects.push(child);
+      wsSend({ type: 'object_add', object: {
+        id, url: '',
+        position: child.position.toArray(),
+        quaternion: child.quaternion.toArray(),
+        scale: child.scale.toArray(),
+      }});
+    }
+    URL.revokeObjectURL(url);
+    addMessage('Scene loaded from ' + file.name, 'system');
+  });
+  e.target.value = '';
+});
+
+// ══════════════════════════════════════
+// Resize
+// ══════════════════════════════════════
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+chatInput.focus();
+</script>
+</body>
+</html>
