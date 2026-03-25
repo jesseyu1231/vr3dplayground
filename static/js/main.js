@@ -8,7 +8,7 @@ import { scene, camera, renderer, selectedObject } from './state.js';
 
 // ── Scene setup ──
 import { initScene } from './scene.js';
-import { createHumanoid, animateHumanoid } from './humanoid.js';
+import { createHumanoid, animateHumanoid, loadMixamoFromFile, clearMixamoModel } from './humanoid.js';
 
 // ── Lights ──
 import { initDefaultLights, initLightButtons, ambientLight, dirLight } from './lights.js';
@@ -29,7 +29,7 @@ import { loadGLB, initFileImport, initSceneExportImport, deleteSelected, duplica
 import { initAssetPanel, assetPanel } from './assetpanel.js';
 
 // ── Chat ──
-import { initChat, isTalking, updateSpeechBubbleFrame } from './chat.js';
+import { initChat, isTalking, updateSpeechBubbleFrame, addMessage } from './chat.js';
 
 // ── VR ──
 import {
@@ -41,6 +41,9 @@ import { hideLightProps } from './lights.js';
 
 // ── Multiplayer ──
 import { connectWS, lerpRemoteCursors, sendCursorUpdate } from './multiplayer.js';
+
+// ── Dev Panel ──
+import { initDevPanel, updateDevPanel } from './devpanel.js';
 
 // ── Chat (sendMessage needed for quick replies) ──
 import { sendMessage } from './chat.js';
@@ -82,6 +85,32 @@ function sendQuickReplyFromPanel() {
   sendMessage(quickReplies[quickReplyIndex]);
 }
 
+initDevPanel();
+
+// ── Character upload ──
+const characterInput = document.getElementById('character-input');
+const characterResetBtn = document.getElementById('character-reset-btn');
+document.getElementById('character-btn').addEventListener('click', () => characterInput.click());
+characterInput.addEventListener('change', () => {
+  const file = characterInput.files[0];
+  if (!file) return;
+  loadMixamoFromFile(file,
+    () => {
+      characterResetBtn.style.display = '';
+      addMessage('Mixamo character loaded: ' + file.name, 'system');
+    },
+    (err) => {
+      addMessage('Failed to load character: ' + (err.message || 'unknown error'), 'system');
+    }
+  );
+  characterInput.value = '';
+});
+characterResetBtn.addEventListener('click', () => {
+  clearMixamoModel();
+  characterResetBtn.style.display = 'none';
+  addMessage('Character reset to default.', 'system');
+});
+
 // ── Connect multiplayer ──
 connectWS(loadGLB);
 
@@ -112,6 +141,8 @@ renderer.setAnimationLoop(() => {
 
   sendCursorUpdate();
   lerpRemoteCursors();
+
+  updateDevPanel();
 
   renderer.render(scene, camera);
 });

@@ -171,3 +171,56 @@ body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-
 }
 .ap-item .ap-btn:hover { background: rgba(255,255,255,0.2); }
 .ap-empty { color: rgba(255,255,255,0.3); font-style: italic; text-align: center; padding: 12px; }
+
+/* Dev Panel */
+#dev-panel {
+  position: fixed; top: 80px; left: 16px; z-index: 20;
+  background: rgba(10,10,20,0.95); backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,100,100,0.25); border-radius: 12px;
+  padding: 12px; width: 230px; max-height: 80vh;
+  color: #e0e0e0; font-size: 12px;
+  overflow-y: auto; display: none;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+#dev-panel::-webkit-scrollbar { width: 5px; }
+#dev-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.dev-header {
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 700; font-size: 13px; margin-bottom: 10px;
+  color: #ff9e9e;
+}
+.dev-close {
+  background: none; border: none; color: rgba(255,255,255,0.4);
+  font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1;
+}
+.dev-close:hover { color: #fff; }
+.dev-section {
+  color: rgba(255,160,100,0.7); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin: 10px 0 5px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;
+}
+.dev-section:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+.dev-btn {
+  display: block; width: 100%; padding: 7px 10px; margin-bottom: 4px;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px; color: #e0e0e0; font-size: 12px; cursor: pointer;
+  text-align: left; transition: background .15s;
+}
+.dev-btn:hover { background: rgba(255,255,255,0.14); }
+.dev-btn.active { background: rgba(255,80,80,0.3); border-color: rgba(255,80,80,0.5); color: #ffaaaa; }
+.dev-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 2px; margin-bottom: 2px;
+}
+.dev-label { color: rgba(255,255,255,0.45); }
+.dev-val { font-family: monospace; color: #b8ffb8; font-size: 11px; }
+.dev-bones {
+  font-family: monospace; font-size: 10px; color: rgba(180,220,255,0.8);
+  line-height: 1.7; padding: 2px 0;
+}
+.dev-slider { flex: 1; accent-color: #7eb8ff; cursor: pointer; min-width: 0; }
+.dev-select {
+  width: 100%; padding: 5px 8px; border-radius: 6px; margin-bottom: 2px;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+  color: #e0e0e0; font-size: 12px; cursor: pointer;
+}

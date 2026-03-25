@@ -32,6 +32,9 @@
   <button class="toolbar-btn" id="asset-panel-btn">&#x1f4cb; Assets</button>
   <button class="toolbar-btn" id="undo-btn" title="Undo (⌘Z)">&#x21a9;&#xfe0f; Undo</button>
   <button class="toolbar-btn" id="redo-btn" title="Redo (⇧⌘Z)">&#x21aa;&#xfe0f; Redo</button>
+  <button class="toolbar-btn" id="character-btn">&#x1f9cd; Character</button>
+  <button class="toolbar-btn" id="character-reset-btn" style="display:none">&#x21a9;&#xfe0f; Reset Char</button>
+  <button class="toolbar-btn" id="dev-btn">&#x1f6e0;&#xfe0f; Dev</button>
 </div>
 
 <!-- Transform Mode (desktop) -->
@@ -56,6 +59,47 @@
   <button class="toolbar-btn" id="light-delete-btn" style="width:100%;margin-top:6px;">Remove Light</button>
 </div>
 
+<!-- Dev Panel -->
+<div id="dev-panel">
+  <div class="dev-header">
+    <span>&#x1f6e0;&#xfe0f; Dev Controls</span>
+    <button id="dev-close-btn" class="dev-close">&#x2715;</button>
+  </div>
+
+  <div class="dev-section">Character Animation</div>
+  <button class="dev-btn" id="dev-talk-toggle">&#x1f4ac; Force Talking: OFF</button>
+  <button class="dev-btn" id="dev-talk-burst">&#x23f1;&#xfe0f; Talk Burst (3s)</button>
+  <div class="dev-row">
+    <label class="dev-label">talkTimer</label>
+    <span id="dev-talk-timer-val" class="dev-val">0.00</span>
+  </div>
+
+  <div class="dev-section">Bone Tweaks (Idle)</div>
+  <select id="dev-bone-select" class="dev-select">
+    <option value="">— select bone —</option>
+  </select>
+  <div class="dev-row" style="margin-top:6px;"><label class="dev-label">X</label><input type="range" class="dev-slider" id="bt-x" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-x-val">0.00</span></div>
+  <div class="dev-row"><label class="dev-label">Y</label><input type="range" class="dev-slider" id="bt-y" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-y-val">0.00</span></div>
+  <div class="dev-row"><label class="dev-label">Z</label><input type="range" class="dev-slider" id="bt-z" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-z-val">0.00</span></div>
+  <button class="dev-btn" id="dev-log-pose" style="margin-top:4px;">&#x1f4cb; Log All Tweaks</button>
+
+  <div class="dev-section">Mixamo Bones</div>
+  <button class="dev-btn" id="dev-log-bones">&#x1f9b4; Log Tracked Bones</button>
+  <button class="dev-btn" id="dev-dump-bones">&#x1f4dc; Dump All Node Names</button>
+  <div id="dev-bones-list" class="dev-bones"></div>
+
+  <div class="dev-section">Scene Info</div>
+  <button class="dev-btn" id="dev-log-scene">&#x1f4cb; Log Scene Graph</button>
+  <div class="dev-row">
+    <label class="dev-label">Objects</label>
+    <span id="dev-object-count" class="dev-val">0</span>
+  </div>
+  <div class="dev-row">
+    <label class="dev-label">FPS</label>
+    <span id="dev-fps" class="dev-val">—</span>
+  </div>
+</div>
+
 <!-- Shortcuts hint -->
 <div id="shortcuts-hint">
   T: Move &middot; R: Rotate &middot; S: Scale &middot; Del: Delete &middot; D: Clone &middot; G: Snap &middot; &#x2318;Z: Undo &middot; &#x21e7;&#x2318;Z: Redo
@@ -73,6 +117,7 @@
 </div>
 
 <input type="file" id="file-input" accept=".glb,.gltf" />
+<input type="file" id="character-input" accept=".glb" style="display:none" />
 <input type="file" id="scene-file-input" accept=".glb" style="display:none" />
 
 <!-- Asset Panel -->
