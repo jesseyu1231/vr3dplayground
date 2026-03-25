@@ -42,11 +42,31 @@ Navigate to **http://localhost:8000**
 ## Project Structure
 
 ```
-├── server.py          # FastAPI backend (proxies chat to POE)
-├── index.html         # Three.js frontend (3D scene + chat UI)
-├── static/            # Static assets directory
-├── requirements.txt   # Python dependencies
-└── README.md          # This file
+├── server.py               # FastAPI backend (proxies chat to POE)
+├── index.html              # Markup entry point
+├── index.html.bak          # Original single-file version (preserved as fallback)
+├── requirements.txt        # Python dependencies
+├── cert.pem / key.pem      # SSL certs for WebXR (HTTPS required on device)
+├── README.md               # This file
+└── static/
+    ├── css/
+    │   └── style.css       # All styles
+    ├── js/
+    │   ├── main.js         # Entry point, render loop
+    │   ├── state.js        # Shared mutable state (scene, camera, renderer, etc.)
+    │   ├── scene.js        # Sky, fog, ground, grid
+    │   ├── humanoid.js     # Procedural character + animation
+    │   ├── lights.js       # Default + user lights, light props panel
+    │   ├── environment.js  # Sky/fog presets
+    │   ├── controls.js     # OrbitControls, TransformControls, snap, click-select, keyboard
+    │   ├── vr.js           # VRButton, XR controllers, hand panel, locomotion
+    │   ├── undo.js         # Undo/redo stack
+    │   ├── chat.js         # addMessage, sendMessage, speech bubble
+    │   ├── textsprite.js   # Canvas-to-3D sprite for VR chat panel
+    │   ├── assetpanel.js   # Scene asset list UI
+    │   ├── assets.js       # GLB load/import/export, delete, duplicate
+    │   └── multiplayer.js  # WebSocket client, cursors, remote sync
+    └── uploads/            # Uploaded GLB assets
 ```
 
 ## Controls
