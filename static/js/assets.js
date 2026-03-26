@@ -183,6 +183,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(a.href);
 }
 
+
 export function initSceneExportImport({
   addDirectionalLight, addPointLight,
   getEnvIndex, envPresets, applyEnvPreset, setEnvIndex,
@@ -319,14 +320,17 @@ export function initSceneExportImport({
           }
         }
 
-        // ── Lights ──
-        for (const li of lights) {
-          const opts = { color: li.color, intensity: li.intensity, position: li.position };
-          if (li.type === 'directional' && addDirectionalLight) addDirectionalLight(opts);
-          else if (li.type === 'point' && addPointLight)        addPointLight(opts);
-        }
-
         // ── Objects ──
+        const grouped = !Array.isArray(manifest) && manifest.grouped === true;
+
+        // ── Lights — only add to scene as standalone lights for non-grouped loads ──
+        if (!grouped) {
+          for (const li of lights) {
+            const opts = { color: li.color, intensity: li.intensity, position: li.position };
+            if (li.type === 'directional' && addDirectionalLight) addDirectionalLight(opts);
+            else if (li.type === 'point' && addPointLight)        addPointLight(opts);
+          }
+        }
         const fileURLs = {};
         for (const entry of objects) {
           if (!entry.file || fileURLs[entry.file]) continue;
@@ -335,19 +339,66 @@ export function initSceneExportImport({
           const buf = await zipEntry.async('arraybuffer');
           fileURLs[entry.file] = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
         }
-        let loaded = 0;
-        for (const entry of objects) {
-          const objUrl = fileURLs[entry.file];
-          if (!objUrl) { addMessage(`Skipped "${entry.name || entry.file}" — file not found in zip`, 'system'); continue; }
-          loadGLB(objUrl, entry.name, {
-            position:   entry.position,
-            quaternion: entry.quaternion,
-            scale:      entry.scale,
-          });
-          loaded++;
-        }
 
-        addMessage(`Loaded from ${file.name}: ${loaded} object(s), ${lights.length} light(s)${characterFile ? ', character' : ''}`, 'system');
+        if (grouped && objects.length > 0) {
+          // Load all objects + lights under one group so the gizmo moves everything together
+          const groupRoot = new THREE.Group();
+          groupRoot.name = 'GroupedExport';
+          const id = genId();
+          groupRoot.userData.id = id;
+          groupRoot.userData.displayName = file.name.replace(/\.[^.]+$/, '');
+          userContentGroup.add(groupRoot);
+          importedObjects.push(groupRoot);
+
+          let loaded = 0;
+          for (const entry of objects) {
+            const objUrl = fileURLs[entry.file];
+            if (!objUrl) continue;
+            await new Promise((resolve) => {
+              gltfLoader.load(objUrl, (gltf) => {
+                const model = gltf.scene;
+                if (!model) { resolve(); return; }
+                model.position.fromArray(entry.position);
+                model.quaternion.fromArray(entry.quaternion);
+                model.scale.fromArray(entry.scale);
+                model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+                groupRoot.add(model);
+                loaded++;
+                resolve();
+              }, undefined, resolve);
+            });
+          }
+
+          // Add lights as children of the group so they move with it
+          for (const li of lights) {
+            let light;
+            if (li.type === 'directional') {
+              light = new THREE.DirectionalLight(new THREE.Color(li.color), li.intensity);
+            } else {
+              light = new THREE.PointLight(new THREE.Color(li.color), li.intensity, 15);
+            }
+            light.position.fromArray(li.position);
+            groupRoot.add(light);
+            if (li.type === 'directional') groupRoot.add(light.target);
+          }
+
+          document.dispatchEvent(new CustomEvent('select-object', { detail: groupRoot }));
+          refreshAssetPanel();
+          addMessage(`Loaded from ${file.name}: ${loaded} object(s) + ${lights.length} light(s) as one group`, 'system');
+        } else {
+          let loaded = 0;
+          for (const entry of objects) {
+            const objUrl = fileURLs[entry.file];
+            if (!objUrl) { addMessage(`Skipped "${entry.name || entry.file}" — file not found in zip`, 'system'); continue; }
+            loadGLB(objUrl, entry.name, {
+              position:   entry.position,
+              quaternion: entry.quaternion,
+              scale:      entry.scale,
+            });
+            loaded++;
+          }
+          addMessage(`Loaded from ${file.name}: ${loaded} object(s), ${lights.length} light(s)${characterFile ? ', character' : ''}`, 'system');
+        }
       } catch (err) {
         addMessage('Failed to load zip: ' + err.message, 'system');
       }

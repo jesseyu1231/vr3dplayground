@@ -24,6 +24,7 @@ import { initUndoButtons } from './undo.js';
 
 // ── Assets ──
 import { loadGLB, initFileImport, initSceneExportImport, deleteSelected, duplicateSelected } from './assets.js';
+import { importedObjects, userLights } from './state.js';
 
 // ── Asset Panel ──
 import { initAssetPanel, assetPanel } from './assetpanel.js';
@@ -81,6 +82,56 @@ function doDelete() { deleteSelected(selectedObject); }
 function doDuplicate() { duplicateSelected(selectedObject); }
 document.getElementById('delete-btn').addEventListener('click', doDelete);
 document.getElementById('duplicate-btn').addEventListener('click', doDuplicate);
+
+document.getElementById('export-glb-btn').addEventListener('click', async () => {
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+
+    const urlToFilename = {};
+    for (const obj of importedObjects) {
+      const url = obj.userData.url || '';
+      if (url && !urlToFilename[url]) {
+        urlToFilename[url] = obj.userData.displayName || url.split('/').pop() || 'model.glb';
+      }
+    }
+    await Promise.all(Object.entries(urlToFilename).map(async ([url, filename]) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        zip.file('objects/' + filename, await res.arrayBuffer());
+      } catch (e) {
+        console.warn('[Export GLB] skipping', filename, e.message);
+      }
+    }));
+
+    const objects = importedObjects.map(obj => ({
+      file:       urlToFilename[obj.userData.url || ''] ? 'objects/' + urlToFilename[obj.userData.url || ''] : '',
+      name:       obj.userData.displayName || '',
+      position:   obj.position.toArray(),
+      quaternion: obj.quaternion.toArray(),
+      scale:      obj.scale.toArray(),
+    }));
+
+    const lights = userLights.map(li => ({
+      type:      li.type,
+      color:     '#' + li.light.color.getHexString(),
+      intensity: li.light.intensity,
+      position:  li.light.position.toArray(),
+    }));
+
+    zip.file('scene.json', JSON.stringify({ objects, lights, grouped: true }, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'grouped-export.zip';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    addMessage(`Exported grouped-export.zip (${objects.length} object(s), ${lights.length} light(s))`, 'system');
+  } catch (err) {
+    addMessage('Export failed: ' + (err.message || err), 'system');
+  }
+});
 
 initKeyboard(doDelete, doDuplicate);
 
