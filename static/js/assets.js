@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import JSZip from 'jszip';
 import { scene, importedObjects, userLights, userContentGroup, genId, wsSend, chatHistory3D } from './state.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo } from './undo.js';
@@ -174,18 +175,82 @@ export function duplicateSelected(selectedObject) {
 }
 
 // ── Scene export/import ──
-export function initSceneExportImport() {
+function downloadBlob(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+export function initSceneExportImport({
+  addDirectionalLight, addPointLight,
+  getEnvIndex, envPresets, applyEnvPreset, setEnvIndex,
+  getMixamoSourceFile, loadMixamoFromBuffer, clearMixamoModel,
+} = {}) {
   document.getElementById('export-btn').addEventListener('click', async () => {
-    const exporter = new GLTFExporter();
     try {
-      const data = await exporter.parseAsync(userContentGroup, { binary: true });
-      const blob = new Blob([data], { type: 'application/octet-stream' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'scene.glb';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      addMessage('Scene exported as scene.glb', 'system');
+      const zip = new JSZip();
+
+      // ── Objects ──
+      const urlToFilename = {};
+      for (const obj of importedObjects) {
+        const url = obj.userData.url || '';
+        if (url && !urlToFilename[url]) {
+          urlToFilename[url] = obj.userData.displayName || url.split('/').pop() || 'model.glb';
+        }
+      }
+      const fetchErrors = [];
+      await Promise.all(Object.entries(urlToFilename).map(async ([url, filename]) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          zip.file('objects/' + filename, await res.arrayBuffer());
+        } catch (err) {
+          fetchErrors.push(`${filename}: ${err.message}`);
+        }
+      }));
+      const objects = importedObjects.map(obj => ({
+        file:       urlToFilename[obj.userData.url || ''] ? 'objects/' + urlToFilename[obj.userData.url || ''] : '',
+        name:       obj.userData.displayName || '',
+        position:   obj.position.toArray(),
+        quaternion: obj.quaternion.toArray(),
+        scale:      obj.scale.toArray(),
+      }));
+
+      // ── User lights ──
+      const lights = userLights.map(li => ({
+        type:      li.type,
+        color:     '#' + li.light.color.getHexString(),
+        intensity: li.light.intensity,
+        position:  li.light.position.toArray(),
+      }));
+
+      // ── Character ──
+      let characterFile = '';
+      const charFile = getMixamoSourceFile ? getMixamoSourceFile() : null;
+      console.log('[Export] getMixamoSourceFile:', getMixamoSourceFile, '→', charFile?.name ?? 'null');
+      if (charFile) {
+        characterFile = 'character/' + charFile.name;
+        const charBuf = await charFile.arrayBuffer();
+        console.log('[Export] packing character:', characterFile, `(${(charBuf.byteLength / 1024).toFixed(1)} KB)`);
+        zip.file(characterFile, charBuf);
+      } else {
+        console.log('[Export] no character file stored — skipping');
+      }
+
+      // ── Environment ──
+      const environmentIndex = getEnvIndex ? getEnvIndex() : 0;
+
+      zip.file('scene.json', JSON.stringify({ objects, lights, characterFile, environmentIndex }, null, 2));
+
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      downloadBlob(blob, 'scene.zip');
+
+      const warn = fetchErrors.length ? ` (${fetchErrors.length} fetch error(s))` : '';
+      const charNote = characterFile ? ', character included' : ', no character';
+      addMessage(`Scene exported as scene.zip (${objects.length} objects, ${lights.length} lights${charNote})${warn}`, 'system');
+      if (fetchErrors.length) console.warn('[Export] fetch errors:', fetchErrors);
     } catch (err) {
       addMessage('Export failed: ' + err.message, 'system');
     }
@@ -193,9 +258,88 @@ export function initSceneExportImport() {
 
   const sceneFileInput = document.getElementById('scene-file-input');
   document.getElementById('import-scene-btn').addEventListener('click', () => sceneFileInput.click());
-  sceneFileInput.addEventListener('change', (e) => {
+  sceneFileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (ext === 'zip') {
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const jsonFile = zip.file('scene.json');
+        if (!jsonFile) { addMessage('Invalid scene.zip — missing scene.json', 'system'); return; }
+
+        let manifest;
+        try { manifest = JSON.parse(await jsonFile.async('string')); }
+        catch { addMessage('scene.json in zip is invalid JSON', 'system'); return; }
+
+        // Support both old format (array) and new format (object with objects/lights/etc.)
+        const objects         = Array.isArray(manifest) ? manifest : (manifest.objects || []);
+        const lights          = Array.isArray(manifest) ? [] : (manifest.lights || []);
+        const characterFile   = Array.isArray(manifest) ? '' : (manifest.characterFile || '');
+        const environmentIndex = Array.isArray(manifest) ? null : (manifest.environmentIndex ?? null);
+
+        // ── Environment ──
+        if (environmentIndex !== null && envPresets && envPresets[environmentIndex]) {
+          setEnvIndex && setEnvIndex(environmentIndex);
+          applyEnvPreset && applyEnvPreset(envPresets[environmentIndex]);
+          document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[environmentIndex].name;
+        }
+
+        // ── Character ──
+        if (characterFile && loadMixamoFromBuffer && clearMixamoModel) {
+          const charEntry = zip.file(characterFile);
+          if (charEntry) {
+            const buf = await charEntry.async('arraybuffer');
+            const name = characterFile.split('/').pop();
+            clearMixamoModel();
+            loadMixamoFromBuffer(buf, name,
+              () => {
+                document.getElementById('character-reset-btn').style.display = '';
+                addMessage('Character loaded: ' + name, 'system');
+              },
+              (err) => addMessage('Failed to load character: ' + (err.message || 'unknown'), 'system')
+            );
+          }
+        }
+
+        // ── Lights ──
+        for (const li of lights) {
+          const opts = { color: li.color, intensity: li.intensity, position: li.position };
+          if (li.type === 'directional' && addDirectionalLight) addDirectionalLight(opts);
+          else if (li.type === 'point' && addPointLight)        addPointLight(opts);
+        }
+
+        // ── Objects ──
+        const fileURLs = {};
+        for (const entry of objects) {
+          if (!entry.file || fileURLs[entry.file]) continue;
+          const zipEntry = zip.file(entry.file);
+          if (!zipEntry) { console.warn(`[Import] missing file in zip: ${entry.file}`); continue; }
+          const buf = await zipEntry.async('arraybuffer');
+          fileURLs[entry.file] = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+        }
+        let loaded = 0;
+        for (const entry of objects) {
+          const objUrl = fileURLs[entry.file];
+          if (!objUrl) { addMessage(`Skipped "${entry.name || entry.file}" — file not found in zip`, 'system'); continue; }
+          loadGLB(objUrl, entry.name, {
+            position:   entry.position,
+            quaternion: entry.quaternion,
+            scale:      entry.scale,
+          });
+          loaded++;
+        }
+
+        addMessage(`Loaded from ${file.name}: ${loaded} object(s), ${lights.length} light(s)${characterFile ? ', character' : ''}`, 'system');
+      } catch (err) {
+        addMessage('Failed to load zip: ' + err.message, 'system');
+      }
+      return;
+    }
+
+    // Legacy: .glb scene import — split top-level nodes into individual objects
     const url = URL.createObjectURL(file);
     gltfLoader.load(url, (gltf) => {
       for (const child of [...gltf.scene.children]) {
@@ -213,8 +357,8 @@ export function initSceneExportImport() {
         }});
       }
       URL.revokeObjectURL(url);
+      refreshAssetPanel();
       addMessage('Scene loaded from ' + file.name, 'system');
     });
-    e.target.value = '';
   });
 }

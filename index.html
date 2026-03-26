@@ -118,7 +118,7 @@
 
 <input type="file" id="file-input" accept=".glb,.gltf" />
 <input type="file" id="character-input" accept=".glb" style="display:none" />
-<input type="file" id="scene-file-input" accept=".glb" style="display:none" />
+<input type="file" id="scene-file-input" accept=".zip,.glb" style="display:none" />
 
 <!-- Asset Panel -->
 <div id="asset-panel">
@@ -147,7 +147,8 @@
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/",
+    "jszip": "https://esm.sh/jszip@3.10.1"
   }
 }
 </script>

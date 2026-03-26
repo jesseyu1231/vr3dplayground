@@ -8,13 +8,13 @@ import { scene, camera, renderer, selectedObject } from './state.js';
 
 // ── Scene setup ──
 import { initScene } from './scene.js';
-import { createHumanoid, animateHumanoid, loadMixamoFromFile, clearMixamoModel } from './humanoid.js';
+import { createHumanoid, animateHumanoid, clearMixamoModel, getMixamoSourceFile, loadMixamoFromFile, loadMixamoFromBuffer } from './humanoid.js';
 
 // ── Lights ──
-import { initDefaultLights, initLightButtons, ambientLight, dirLight } from './lights.js';
+import { initDefaultLights, initLightButtons, ambientLight, dirLight, addDirectionalLight, addPointLight } from './lights.js';
 
 // ── Environment presets ──
-import { initEnvButton, registerDefaultLightsForEnv } from './environment.js';
+import { initEnvButton, registerDefaultLightsForEnv, envIndex, envPresets, applyEnvPreset, setEnvIndex } from './environment.js';
 
 // ── Controls ──
 import { orbitControls, tControls, selectObject, deselectAll, initKeyboard } from './controls.js';
@@ -67,7 +67,13 @@ initLightButtons();
 initEnvButton();
 initAssetPanel();
 initFileImport();
-initSceneExportImport();
+initSceneExportImport({
+  addDirectionalLight, addPointLight,
+  getEnvIndex:        () => envIndex,
+  envPresets,         applyEnvPreset, setEnvIndex,
+  getMixamoSourceFile: () => getMixamoSourceFile(),
+  loadMixamoFromBuffer, clearMixamoModel,
+});
 initChat();
 
 // Delete / Duplicate — wrap so they read current selectedObject
@@ -91,19 +97,24 @@ initDevPanel();
 const characterInput = document.getElementById('character-input');
 const characterResetBtn = document.getElementById('character-reset-btn');
 document.getElementById('character-btn').addEventListener('click', () => characterInput.click());
-characterInput.addEventListener('change', () => {
+characterInput.addEventListener('change', async () => {
+  console.log('[Character] input change fired, files:', characterInput.files?.length);
   const file = characterInput.files[0];
   if (!file) return;
-  loadMixamoFromFile(file,
+  console.log('[Character] file selected:', file.name, file.size);
+  // Read buffer before clearing input — clearing input can invalidate File on Safari
+  const buf = await file.arrayBuffer();
+  const safeName = file.name;
+  characterInput.value = '';
+  loadMixamoFromBuffer(buf, safeName,
     () => {
       characterResetBtn.style.display = '';
-      addMessage('Mixamo character loaded: ' + file.name, 'system');
+      addMessage('Mixamo character loaded: ' + safeName, 'system');
     },
     (err) => {
       addMessage('Failed to load character: ' + (err.message || 'unknown error'), 'system');
     }
   );
-  characterInput.value = '';
 });
 characterResetBtn.addEventListener('click', () => {
   clearMixamoModel();

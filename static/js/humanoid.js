@@ -5,7 +5,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { scene } from "./state.js";
-import { refreshBoneDropdown } from "./devpanel.js";
 
 const skinMat = new THREE.MeshStandardMaterial({
   color: 0xc4956a,
@@ -91,6 +90,12 @@ let mixamoRoot = null;
 let mixamoBones = null; // keyed by clean bone name
 let mixamoRestQ = {};   // initial quaternions captured at load time (the exported idle pose)
 let mixamoRestReady = false; // true once rest quaternions are captured
+let mixamoSourceFile = null; // original File object (for zip export)
+
+export function getMixamoSourceFile() {
+  console.log('[Character] getMixamoSourceFile called → ', mixamoSourceFile?.name ?? 'null');
+  return mixamoSourceFile;
+}
 
 // Point gesture pose for right arm bones (Euler degrees)
 const DEG = Math.PI / 180;
@@ -118,7 +123,9 @@ const REST_EULER_DEG = {
 };
 
 export function setMixamoModel(gltfScene) {
+  const savedFile = mixamoSourceFile; // preserve before clearMixamoModel wipes it
   clearMixamoModel();
+  mixamoSourceFile = savedFile;
 
   mixamoRoot = gltfScene;
   mixamoRoot.updateMatrixWorld(true);
@@ -173,8 +180,8 @@ export function setMixamoModel(gltfScene) {
   }
   mixamoRestReady = true;
 
-  // Populate the dev panel bone dropdown
-  refreshBoneDropdown(Object.keys(mixamoBones));
+  // Notify dev panel to refresh its bone dropdown (avoids circular import)
+  document.dispatchEvent(new CustomEvent('mixamo-bones-ready', { detail: Object.keys(mixamoBones) }));
 
   mixamoRoot.traverse((c) => {
     if (c.isMesh) {
@@ -209,6 +216,7 @@ export function clearMixamoModel() {
     mixamoRoot = null;
   }
   mixamoBones = null;
+  mixamoSourceFile = null;
   if (humanoid) humanoid.visible = true;
 }
 
@@ -223,18 +231,48 @@ export function getMixamoRoot() {
 }
 
 const _gltfLoader = new GLTFLoader();
+
+// Load from a File object (used on initial upload)
 export function loadMixamoFromFile(file, onSuccess, onError) {
+  console.log('[Character] storing file:', file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
+  mixamoSourceFile = file;
+  console.log('[Character] mixamoSourceFile set:', mixamoSourceFile?.name ?? 'null');
   const url = URL.createObjectURL(file);
   _gltfLoader.load(
     url,
     (gltf) => {
       URL.revokeObjectURL(url);
       setMixamoModel(gltf.scene);
+      console.log('[Character] model loaded and set ✓');
       if (onSuccess) onSuccess();
     },
     undefined,
     (err) => {
       URL.revokeObjectURL(url);
+      console.error('[Character] load error:', err);
+      if (onError) onError(err);
+    },
+  );
+}
+
+// Load from an ArrayBuffer (used when restoring from zip)
+export function loadMixamoFromBuffer(buf, name, onSuccess, onError) {
+  console.log('[Character] restoring from buffer:', name, `(${(buf.byteLength / 1024).toFixed(1)} KB)`);
+  mixamoSourceFile = new File([buf], name, { type: 'model/gltf-binary' });
+  console.log('[Character] mixamoSourceFile set from buffer:', mixamoSourceFile?.name ?? 'null');
+  const blobUrl = URL.createObjectURL(mixamoSourceFile);
+  _gltfLoader.load(
+    blobUrl,
+    (gltf) => {
+      URL.revokeObjectURL(blobUrl);
+      setMixamoModel(gltf.scene);
+      console.log('[Character] model restored and set ✓');
+      if (onSuccess) onSuccess();
+    },
+    undefined,
+    (err) => {
+      URL.revokeObjectURL(blobUrl);
+      console.error('[Character] buffer load error:', err);
       if (onError) onError(err);
     },
   );

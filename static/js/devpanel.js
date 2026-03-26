@@ -34,8 +34,8 @@ const btXVal = document.getElementById('bt-x-val');
 const btYVal = document.getElementById('bt-y-val');
 const btZVal = document.getElementById('bt-z-val');
 
-// Populate dropdown when a Mixamo model is loaded — called from setMixamoModel
-export function refreshBoneDropdown(boneNames) {
+// Populate dropdown when a Mixamo model is loaded — triggered via CustomEvent
+function refreshBoneDropdown(boneNames) {
   boneSelect.innerHTML = '<option value="">— select bone —</option>';
   for (const name of boneNames) {
     if (!boneTweaks[name]) boneTweaks[name] = { x: 0, y: 0, z: 0 };
@@ -45,6 +45,7 @@ export function refreshBoneDropdown(boneNames) {
     boneSelect.appendChild(opt);
   }
 }
+document.addEventListener('mixamo-bones-ready', (e) => refreshBoneDropdown(e.detail));
 
 function getSelected() { return boneSelect.value; }
 
