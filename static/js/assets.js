@@ -280,6 +280,21 @@ export function initSceneExportImport({
         const characterFile   = Array.isArray(manifest) ? '' : (manifest.characterFile || '');
         const environmentIndex = Array.isArray(manifest) ? null : (manifest.environmentIndex ?? null);
 
+        // ── Clear existing scene ──
+        document.dispatchEvent(new CustomEvent('deselect-all'));
+        for (const obj of [...importedObjects]) {
+          obj.removeFromParent();
+        }
+        importedObjects.length = 0;
+        for (const li of [...userLights]) {
+          scene.remove(li.light);
+          if (li.helper) scene.remove(li.helper);
+          scene.remove(li.handle);
+          if (li.light.target) scene.remove(li.light.target);
+        }
+        userLights.length = 0;
+        refreshAssetPanel();
+
         // ── Environment ──
         if (environmentIndex !== null && envPresets && envPresets[environmentIndex]) {
           setEnvIndex && setEnvIndex(environmentIndex);
