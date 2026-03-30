@@ -1,0 +1,44 @@
+{
+  "name": "vr3dplayground-desktop",
+  "version": "1.0.0",
+  "description": "3D AI Environment — Desktop Builder",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.0",
+    "uuid": "^10.0.0",
+    "ws": "^8.17.1"
+  },
+  "build": {
+    "appId": "com.ritsxrspace.3dbuilder",
+    "productName": "3D AI Environment",
+    "files": [
+      "electron/**/*",
+      "server-node.js",
+      "index.html",
+      "static/css/**/*",
+      "static/js/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ],
+      "icon": "build/icon.icns",
+      "identity": null
+    },
+    "dmg": {
+      "title": "3D AI Environment",
+      "window": { "width": 540, "height": 380 }
+    }
+  }
+}

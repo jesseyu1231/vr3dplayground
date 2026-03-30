@@ -25,7 +25,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.xr.enabled = true;
+renderer.xr.enabled = false;
 
 // ── User content group (imported objects; used for export/sync) ──
 export const userContentGroup = new THREE.Group();
@@ -41,7 +41,7 @@ export let selectedObject = null;
 export function setSelectedObject(obj) { selectedObject = obj; }
 
 // ── Multiplayer identity ──
-export const myName = localStorage.getItem('mp_name') || prompt('Enter your display name:', 'User') || 'User';
+export const myName = localStorage.getItem('mp_name') || 'User';
 localStorage.setItem('mp_name', myName);
 export const myRole = /OculusBrowser|Quest/i.test(navigator.userAgent) ? 'viewer' : 'editor';
 export let myUserId = null;

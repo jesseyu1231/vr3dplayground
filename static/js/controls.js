@@ -122,12 +122,11 @@ export function findSelectableRoot(obj) {
 }
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
-  if (renderer.xr.isPresenting) return;
   pointerStart = { x: e.clientX, y: e.clientY };
 });
 
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (renderer.xr.isPresenting || tDragging || !pointerStart) return;
+  if (tDragging || !pointerStart) return;
   const dx = e.clientX - pointerStart.x;
   const dy = e.clientY - pointerStart.y;
   if (dx * dx + dy * dy > 25) return;
@@ -187,7 +186,7 @@ export function initKeyboard(deleteSelectedFn, duplicateSelectedFn) {
       if (e.shiftKey) performRedo(); else performUndo();
       return;
     }
-    if (e.target === chatInput || e.target.id === 'vr-chat-input') return;
+    if (e.target === chatInput) return;
     switch (e.key) {
       case 't': case 'T':
         tControls.setMode('translate');

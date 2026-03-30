@@ -32,12 +32,6 @@ import { initAssetPanel, assetPanel } from './assetpanel.js';
 // ── Chat ──
 import { initChat, isTalking, updateSpeechBubbleFrame, addMessage } from './chat.js';
 
-// ── VR ──
-import {
-  initVR, initControllers, initHandPanel, initControllerEvents, initSessionEvents,
-  animateVR, updateVRGrab, drawHandPanel, handPanelDirty, setHandPanelDirty,
-  quickReplies, quickReplyIndex,
-} from './vr.js';
 import { hideLightProps } from './lights.js';
 
 // ── Multiplayer ──
@@ -45,9 +39,6 @@ import { connectWS, lerpRemoteCursors, sendCursorUpdate } from './multiplayer.js
 
 // ── Dev Panel ──
 import { initDevPanel, updateDevPanel } from './devpanel.js';
-
-// ── Chat (sendMessage needed for quick replies) ──
-import { sendMessage } from './chat.js';
 
 // ── Init ──────────────────────────────────────────────────
 const clock = new THREE.Clock();
@@ -57,11 +48,6 @@ createHumanoid();
 
 initDefaultLights();
 registerDefaultLightsForEnv(ambientLight, dirLight);
-
-initVR();
-initControllers();
-initHandPanel();
-initControllerEvents();
 
 initUndoButtons();
 initLightButtons();
@@ -135,13 +121,6 @@ document.getElementById('export-glb-btn').addEventListener('click', async () => 
 
 initKeyboard(doDelete, doDuplicate);
 
-initSessionEvents(orbitControls, tControls, assetPanel, hideLightProps);
-
-// Send quick reply from wrist panel
-function sendQuickReplyFromPanel() {
-  sendMessage(quickReplies[quickReplyIndex]);
-}
-
 initDevPanel();
 
 // ── Character upload ──
@@ -189,17 +168,8 @@ renderer.setAnimationLoop(() => {
 
   animateHumanoid(t, isTalking);
 
-  if (renderer.xr.isPresenting) {
-    animateVR(sendQuickReplyFromPanel);
-    if (handPanelDirty) { drawHandPanel(); setHandPanelDirty(false); }
-  }
-
-  updateVRGrab();
-
-  if (!renderer.xr.isPresenting) {
-    orbitControls.update();
-    updateSpeechBubbleFrame();
-  }
+  orbitControls.update();
+  updateSpeechBubbleFrame();
 
   sendCursorUpdate();
   lerpRemoteCursors();

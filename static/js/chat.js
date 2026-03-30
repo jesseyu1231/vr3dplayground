@@ -2,17 +2,12 @@
  * chat.js — addMessage, sendMessage, speech bubble, VR chat overlay.
  */
 import * as THREE from 'three';
-import { camera, renderer, chatHistory3D, wsSend, myName } from './state.js';
-import { update3DChatPanel } from './textsprite.js';
-import { setHandPanelDirty } from './vr.js';
+import { camera, chatHistory3D, wsSend, myName } from './state.js';
 
 // ── DOM refs ──
 const chatOutput   = document.getElementById('chat-output');
 const chatInput    = document.getElementById('chat-input');
 const sendBtn      = document.getElementById('send-btn');
-const vrChatOutput = document.getElementById('vr-chat-output');
-const vrChatInput  = document.getElementById('vr-chat-input');
-const vrSendBtn    = document.getElementById('vr-send-btn');
 const speechBubble = document.getElementById('speech-bubble');
 
 speechBubble.addEventListener('click', () => { speechBubble.style.display = 'none'; });
@@ -21,7 +16,6 @@ speechBubble.addEventListener('click', () => { speechBubble.style.display = 'non
 const bubbleWorldPos = new THREE.Vector3();
 
 function updateSpeechBubblePosition() {
-  if (renderer.xr.isPresenting) { speechBubble.style.display = 'none'; return; }
   if (speechBubble.style.display === 'none' || speechBubble.style.display === '') return;
   bubbleWorldPos.set(0, 2.6, 0).project(camera);
   const x = (bubbleWorldPos.x * 0.5 + 0.5) * innerWidth;
@@ -62,21 +56,7 @@ export function addMessage(text, type = 'bot') {
   chatOutput.appendChild(div);
   chatOutput.scrollTop = chatOutput.scrollHeight;
 
-  // VR overlay chat panel
-  const vrDiv = document.createElement('div');
-  vrDiv.style.color = type === 'user' ? '#7eb8ff' : type === 'bot' ? '#b8ffb8' : type === 'peer' ? '#c4a8ff' : '#ffd27e';
-  vrDiv.style.marginBottom = '4px';
-  const prefix = type === 'user' ? 'You: ' : type === 'bot' ? 'AI: ' : '';
-  vrDiv.textContent = prefix + text;
-  vrChatOutput.appendChild(vrDiv);
-  vrChatOutput.scrollTop = vrChatOutput.scrollHeight;
-
-  // 3D sprite panel
-  chatHistory3D.push((type === 'peer' ? '' : prefix) + (text.length > 80 ? text.substring(0, 80) + '\u2026' : text));
-  update3DChatPanel();
-
-  // Wrist panel
-  setHandPanelDirty(true);
+  chatHistory3D.push((type === 'peer' ? '' : (type === 'user' ? 'You: ' : type === 'bot' ? 'AI: ' : '')) + (text.length > 80 ? text.substring(0, 80) + '\u2026' : text));
 }
 
 // ── Send message ──
@@ -121,21 +101,5 @@ export function initChat() {
   sendBtn.addEventListener('click', () => sendMessage());
   chatInput.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-
-  vrSendBtn.addEventListener('click', () => {
-    const text = vrChatInput.value.trim();
-    if (!text) return;
-    vrChatInput.value = '';
-    sendMessage(text);
-  });
-  vrChatInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const text = vrChatInput.value.trim();
-      if (!text) return;
-      vrChatInput.value = '';
-      sendMessage(text);
-    }
   });
 }

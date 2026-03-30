@@ -5,12 +5,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import JSZip from 'jszip';
-import { scene, importedObjects, userLights, userContentGroup, genId, wsSend, chatHistory3D } from './state.js';
+import { scene, importedObjects, userLights, userContentGroup, genId, wsSend } from './state.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo } from './undo.js';
 import { addMessage } from './chat.js';
-import { update3DChatPanel } from './textsprite.js';
-import { setHandPanelDirty } from './vr.js';
 
 const gltfLoader = new GLTFLoader();
 
@@ -54,9 +52,6 @@ export function loadGLB(url, filename, opts = {}) {
     importedObjects.push(model);
     if (!opts.remote) {
       pushUndo({ type: 'object_add', obj: model });
-      chatHistory3D.push(`[Imported: ${filename}]`);
-      update3DChatPanel();
-      setHandPanelDirty(true);
       document.dispatchEvent(new CustomEvent('select-object', { detail: model }));
       wsSend({ type: 'object_add', object: {
         id, url, position: model.position.toArray(),
@@ -95,9 +90,6 @@ export function initFileImport() {
         userContentGroup.add(model);
         importedObjects.push(model);
         pushUndo({ type: 'object_add', obj: model });
-        chatHistory3D.push(`[Imported: ${file.name}]`);
-        update3DChatPanel();
-        setHandPanelDirty(true);
         document.dispatchEvent(new CustomEvent('select-object', { detail: model }));
         wsSend({ type: 'object_add', object: {
           id, url: '', position: model.position.toArray(),

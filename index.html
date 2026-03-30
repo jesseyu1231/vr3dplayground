@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>3D AI Environment — Editor & VR Viewer</title>
+<title>3D AI Environment — Desktop Builder</title>
 <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
@@ -13,8 +13,7 @@
 
 <!-- Desktop Mode Badge -->
 <div id="mode-badge">
-  &#x1f5a5;&#xfe0f; Desktop Editor
-  <small id="vr-status">WebXR: checking…</small>
+  &#x1f5a5;&#xfe0f; Desktop Builder
   <small id="connected-count"></small>
 </div>
 
@@ -132,17 +131,6 @@
   <div id="ap-lights-list"></div>
 </div>
 
-<!-- VR chat overlay (DOM overlay for Quest system keyboard) -->
-<div id="vr-overlay">
-  <div id="vr-chat-container">
-    <div id="vr-badge">&#x1f97d; VR Viewer &mdash; L-stick: Move &middot; R-stick: Turn &middot; Tap input to type</div>
-    <div id="vr-chat-output"></div>
-    <div id="vr-input-row">
-      <input id="vr-chat-input" type="text" placeholder="Tap to type…" inputmode="text" autocomplete="off" />
-      <button id="vr-send-btn">Send</button>
-    </div>
-  </div>
-</div>
 
 <script type="importmap">
 {
