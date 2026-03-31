@@ -178,6 +178,78 @@
   }
   .ap-item .ap-btn:hover { background: rgba(255,255,255,0.2); }
   .ap-empty { color: rgba(255,255,255,0.3); font-style: italic; text-align: center; padding: 12px; }
+
+/* Import Modal */
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal.hidden { display: none; }
+.modal-content {
+  background: rgba(15,15,25,0.95); backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+  padding: 20px; width: 340px; color: #e0e0e0;
+}
+.modal-content h3 {
+  margin: 0 0 14px; font-size: 16px; font-weight: 600;
+}
+.modal-tabs {
+  display: flex; gap: 4px; margin-bottom: 14px;
+}
+.modal-tab {
+  flex: 1; padding: 8px 12px; border: none; border-radius: 8px;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background .2s, color .2s;
+}
+.modal-tab:hover { background: rgba(255,255,255,0.12); }
+.modal-tab.active { background: rgba(74,124,255,0.5); color: #fff; }
+.tab-panel { min-height: 120px; }
+.tab-panel.hidden { display: none; }
+.primitive-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 8px; margin-bottom: 14px;
+}
+.primitive-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 6px; border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; background: rgba(255,255,255,0.05);
+  color: #e0e0e0; cursor: pointer; transition: border-color .2s, background .2s;
+}
+.primitive-btn:hover { background: rgba(255,255,255,0.1); }
+.primitive-btn.selected { border-color: #4a7cff; background: rgba(74,124,255,0.2); }
+.primitive-icon { font-size: 22px; }
+.primitive-label { font-size: 10px; font-weight: 600; }
+.color-row { display: flex; align-items: center; gap: 10px; }
+.color-row label { font-size: 12px; color: rgba(255,255,255,0.7); }
+.color-row input[type="color"] {
+  width: 50px; height: 30px; border: none; border-radius: 6px;
+  cursor: pointer; background: none;
+}
+.upload-area {
+  border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px;
+  padding: 24px 16px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.upload-area:hover { border-color: rgba(74,124,255,0.5); background: rgba(74,124,255,0.1); }
+.upload-area p { margin: 0; font-size: 13px; color: rgba(255,255,255,0.7); }
+.upload-hint { font-size: 11px !important; color: rgba(255,255,255,0.4) !important; margin-top: 4px !important; }
+.modal-actions {
+  display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;
+}
+.modal-btn {
+  padding: 8px 18px; border-radius: 8px; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+}
+.modal-btn.cancel {
+  background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7);
+}
+.modal-btn.cancel:hover { background: rgba(255,255,255,0.15); }
+.modal-btn.primary {
+  background: linear-gradient(135deg,#4a7cff,#6a4cff); color: #fff;
+}
+.modal-btn.primary:hover { opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -248,6 +320,59 @@
 
 <input type="file" id="file-input" accept=".glb,.gltf" />
 <input type="file" id="scene-file-input" accept=".glb" style="display:none" />
+
+<!-- Import Modal -->
+<div id="import-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3>&#x1f4e6; Add 3D Object</h3>
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="primitives">Primitives</button>
+      <button class="modal-tab" data-tab="upload">Upload</button>
+    </div>
+
+    <div id="tab-primitives" class="tab-panel">
+      <div class="primitive-grid">
+        <button class="primitive-btn selected" data-shape="cube">
+          <span class="primitive-icon">&#x1f9ca;</span>
+          <span class="primitive-label">Cube</span>
+        </button>
+        <button class="primitive-btn" data-shape="sphere">
+          <span class="primitive-icon">&#x26bd;</span>
+          <span class="primitive-label">Sphere</span>
+        </button>
+        <button class="primitive-btn" data-shape="cylinder">
+          <span class="primitive-icon">&#x1f96b;</span>
+          <span class="primitive-label">Cylinder</span>
+        </button>
+        <button class="primitive-btn" data-shape="cone">
+          <span class="primitive-icon">&#x1f53a;</span>
+          <span class="primitive-label">Cone</span>
+        </button>
+        <button class="primitive-btn" data-shape="torus">
+          <span class="primitive-icon">&#x1f369;</span>
+          <span class="primitive-label">Torus</span>
+        </button>
+      </div>
+      <div class="color-row">
+        <label>Color:</label>
+        <input type="color" id="primitive-color" value="#ffffff">
+      </div>
+    </div>
+
+    <div id="tab-upload" class="tab-panel hidden">
+      <div class="upload-area" id="modal-upload-area">
+        <p>Drag & drop or click to upload</p>
+        <p class="upload-hint">.glb files supported</p>
+      </div>
+      <input type="file" id="modal-file-input" accept=".glb,.gltf" hidden>
+    </div>
+
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
+      <button class="modal-btn primary" id="modal-add">Add</button>
+    </div>
+  </div>
+</div>
 
 <!-- Asset Panel -->
 <div id="asset-panel">
@@ -1091,7 +1216,213 @@ function loadGLB(url, filename, opts = {}) {
 }
 
 const fileInput = document.getElementById('file-input');
-document.getElementById('import-btn').addEventListener('click', () => fileInput.click());
+
+// ══════════════════════════════════════
+// Import Modal (Primitives + Upload)
+// ══════════════════════════════════════
+const importModal = document.getElementById('import-modal');
+const modalTabs = document.querySelectorAll('.modal-tab');
+const tabPrimitives = document.getElementById('tab-primitives');
+const tabUpload = document.getElementById('tab-upload');
+const primitiveBtns = document.querySelectorAll('.primitive-btn');
+const primitiveColor = document.getElementById('primitive-color');
+const modalFileInput = document.getElementById('modal-file-input');
+const modalUploadArea = document.getElementById('modal-upload-area');
+const modalCancel = document.getElementById('modal-cancel');
+const modalAdd = document.getElementById('modal-add');
+
+let selectedPrimitive = 'cube';
+
+// Open modal when clicking Import 3D button
+document.getElementById('import-btn').addEventListener('click', () => {
+  importModal.classList.remove('hidden');
+  selectedPrimitive = 'cube';
+  primitiveBtns.forEach(btn => btn.classList.remove('selected'));
+  primitiveBtns[0].classList.add('selected');
+  primitiveColor.value = '#ffffff';
+  // Reset to primitives tab
+  modalTabs.forEach(t => t.classList.remove('active'));
+  modalTabs[0].classList.add('active');
+  tabPrimitives.classList.remove('hidden');
+  tabUpload.classList.add('hidden');
+});
+
+// Close modal
+modalCancel.addEventListener('click', () => {
+  importModal.classList.add('hidden');
+});
+
+// Close on backdrop click
+importModal.addEventListener('click', (e) => {
+  if (e.target === importModal) {
+    importModal.classList.add('hidden');
+  }
+});
+
+// Tab switching
+modalTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    modalTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    const tabName = tab.dataset.tab;
+    if (tabName === 'primitives') {
+      tabPrimitives.classList.remove('hidden');
+      tabUpload.classList.add('hidden');
+    } else {
+      tabPrimitives.classList.add('hidden');
+      tabUpload.classList.remove('hidden');
+    }
+  });
+});
+
+// Primitive selection
+primitiveBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    primitiveBtns.forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedPrimitive = btn.dataset.shape;
+  });
+});
+
+function createPrimitive(type, colorHex, opts = {}) {
+  let geometry;
+  switch(type) {
+    case 'cube':
+      geometry = new THREE.BoxGeometry(1, 1, 1);
+      break;
+    case 'sphere':
+      geometry = new THREE.SphereGeometry(0.5, 32, 32);
+      break;
+    case 'cylinder':
+      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32);
+      break;
+    case 'cone':
+      geometry = new THREE.ConeGeometry(0.5, 1, 32);
+      break;
+    case 'torus':
+      geometry = new THREE.TorusGeometry(0.4, 0.15, 16, 100);
+      break;
+    default:
+      geometry = new THREE.BoxGeometry(1, 1, 1);
+  }
+
+  const material = new THREE.MeshStandardMaterial({ color: colorHex });
+  const mesh = new THREE.Mesh(geometry, material);
+
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const id = opts.id || genId();
+  mesh.userData.id = id;
+  mesh.userData.displayName = type.charAt(0).toUpperCase() + type.slice(1);
+  mesh.userData.isPrimitive = true;
+  mesh.userData.primitiveType = type;
+
+  if (opts.position) {
+    mesh.position.fromArray(opts.position);
+    if (opts.quaternion) mesh.quaternion.fromArray(opts.quaternion);
+    if (opts.scale) mesh.scale.fromArray(opts.scale);
+  } else {
+    mesh.position.set(1.2, 0.5, 0);
+  }
+
+  userContentGroup.add(mesh);
+  importedObjects.push(mesh);
+
+  if (!opts.remote) {
+    pushUndo({ type: 'object_add', obj: mesh });
+    selectObject(mesh);
+    wsSend({ type: 'object_add', object: {
+      id,
+      url: '',
+      primitive: type,
+      color: colorHex,
+      position: mesh.position.toArray(),
+      quaternion: mesh.quaternion.toArray(),
+      scale: mesh.scale.toArray(),
+    }});
+  }
+
+  refreshAssetPanel();
+
+  return mesh;
+}
+
+// Add button - create selected primitive
+modalAdd.addEventListener('click', () => {
+  const activeTab = document.querySelector('.modal-tab.active').dataset.tab;
+
+  if (activeTab === 'primitives') {
+    const color = primitiveColor.value;
+    createPrimitive(selectedPrimitive, color);
+    importModal.classList.add('hidden');
+  }
+});
+
+// Upload area click triggers file input
+modalUploadArea.addEventListener('click', () => {
+  modalFileInput.click();
+});
+
+// Handle file selection from modal
+modalFileInput.addEventListener('change', async () => {
+  const file = modalFileInput.files[0];
+  if (!file) return;
+
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'gltf') {
+    const url = URL.createObjectURL(file);
+    gltfLoader.load(url, (gltf) => {
+      const model = gltf.scene;
+      if (!model) {
+        addMessage('Import failed: no scene in file', 'system');
+        URL.revokeObjectURL(url);
+        return;
+      }
+      const id = genId();
+      model.userData.id = id;
+      model.userData.url = '';
+      model.userData.displayName = file.name;
+      normalizeAndPlace(model, new THREE.Vector3(1.2, 0, 0));
+      userContentGroup.add(model);
+      importedObjects.push(model);
+      pushUndo({ type: 'object_add', obj: model });
+      selectObject(model);
+      wsSend({ type: 'object_add', object: {
+        id, url: '', position: model.position.toArray(),
+        quaternion: model.quaternion.toArray(), scale: model.scale.toArray(),
+      }});
+      refreshAssetPanel();
+      addMessage('Loaded ' + file.name + ' (local .gltf)', 'system');
+      URL.revokeObjectURL(url);
+    }, undefined, (err) => {
+      URL.revokeObjectURL(url);
+      addMessage('Failed to load .gltf file', 'system');
+    });
+    modalFileInput.value = '';
+    importModal.classList.add('hidden');
+    return;
+  }
+
+  // .glb - upload to server
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (res.ok) {
+      loadGLB(data.url, data.name);
+      importModal.classList.add('hidden');
+    } else {
+      addMessage(data.error || 'Upload failed', 'system');
+    }
+  } catch (err) {
+    addMessage('Upload error: ' + err.message, 'system');
+  }
+  modalFileInput.value = '';
+});
 
 fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
@@ -1985,10 +2316,23 @@ function handleWSMessage(msg) {
       updateCursor(msg.userId, msg);
       break;
     case 'object_add':
-      if (msg.object) loadGLB(msg.object.url, 'remote', {
-        id: msg.object.id, position: msg.object.position,
-        quaternion: msg.object.quaternion, scale: msg.object.scale, remote: true,
-      });
+      if (msg.object) {
+        if (msg.object.primitive) {
+          // Remote primitive - recreate locally
+          createPrimitive(msg.object.primitive, msg.object.color || '#ffffff', {
+            id: msg.object.id,
+            position: msg.object.position,
+            quaternion: msg.object.quaternion,
+            scale: msg.object.scale,
+            remote: true,
+          });
+        } else {
+          loadGLB(msg.object.url, 'remote', {
+            id: msg.object.id, position: msg.object.position,
+            quaternion: msg.object.quaternion, scale: msg.object.scale, remote: true,
+          });
+        }
+      }
       break;
     case 'object_transform':
       applyRemoteTransform(msg);
