@@ -436,7 +436,7 @@ drawSkyGradient([[0,'#1a1a3e'],[0.4,'#2d2d6e'],[0.7,'#4a4a8a'],[1,'#7a7ab0']]);
 scene.fog = new THREE.FogExp2(0x2d2d6e, 0.02);
 
 // UUID utility
-function genId() { return crypto.randomUUID(); }
+function genId() { return 'id_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
 // Prompt username (stored in localStorage)
 const myName = localStorage.getItem('mp_name') || prompt('Enter your display name:', 'User') || 'User';
