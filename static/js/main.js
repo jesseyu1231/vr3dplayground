@@ -123,6 +123,65 @@ initKeyboard(doDelete, doDuplicate);
 
 initDevPanel();
 
+// ── Chat panel toggle ──
+const chatPanel = document.getElementById('chat-panel');
+const chatToggleBtn = document.getElementById('chat-toggle-btn');
+chatToggleBtn.addEventListener('click', () => {
+  const hidden = chatPanel.style.display === 'none';
+  chatPanel.style.display = hidden ? '' : 'none';
+  chatToggleBtn.classList.toggle('active', hidden);
+});
+chatToggleBtn.classList.add('active'); // visible by default
+
+// ── Polygon budget warning (Quest 3S: ~1M triangles across 4 scenes → 250K per scene) ──
+const QUEST_TRI_BUDGET   = 250_000;  // per-scene triangle budget for Quest 3S
+const QUEST_WARN_RATIO   = 0.70;      // warn at 70%
+const QUEST_DANGER_RATIO  = 0.90;     // danger at 90%
+const polyWarning = document.getElementById('poly-warning');
+let lastTriCount = 0;
+
+function countSceneTriangles() {
+  let tris = 0;
+  for (const obj of importedObjects) {
+    obj.traverse(child => {
+      if (child.isMesh && child.geometry) {
+        const geo = child.geometry;
+        if (geo.index) {
+          tris += geo.index.count / 3;
+        } else if (geo.attributes.position) {
+          tris += geo.attributes.position.count / 3;
+        }
+      }
+    });
+  }
+  return Math.round(tris);
+}
+
+function updatePolyWarning() {
+  const tris = countSceneTriangles();
+  if (tris === lastTriCount) return;
+  lastTriCount = tris;
+
+  const ratio = tris / QUEST_TRI_BUDGET;
+  const pct = Math.round(ratio * 100);
+
+  if (ratio >= QUEST_DANGER_RATIO) {
+    polyWarning.style.display = 'block';
+    polyWarning.className = 'poly-warn poly-danger';
+    polyWarning.textContent = `\u26a0\ufe0f ${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget) — OVER BUDGET, expect frame drops on Quest`;
+  } else if (ratio >= QUEST_WARN_RATIO) {
+    polyWarning.style.display = 'block';
+    polyWarning.className = 'poly-warn poly-caution';
+    polyWarning.textContent = `\u26a0\ufe0f ${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget) — approaching limit`;
+  } else if (tris > 0) {
+    polyWarning.style.display = 'block';
+    polyWarning.className = 'poly-warn poly-ok';
+    polyWarning.textContent = `\u25b2 ${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget)`;
+  } else {
+    polyWarning.style.display = 'none';
+  }
+}
+
 // ── Character upload ──
 const characterInput = document.getElementById('character-input');
 const characterResetBtn = document.getElementById('character-reset-btn');
@@ -175,6 +234,7 @@ renderer.setAnimationLoop(() => {
   lerpRemoteCursors();
 
   updateDevPanel();
+  updatePolyWarning();
 
   renderer.render(scene, camera);
 });

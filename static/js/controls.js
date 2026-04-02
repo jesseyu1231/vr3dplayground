@@ -14,8 +14,8 @@ export const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.target.set(0, 1.4, 0);
 orbitControls.enableDamping = true;
 orbitControls.dampingFactor = 0.08;
-orbitControls.minDistance = 1.5;
-orbitControls.maxDistance = 15;
+orbitControls.minDistance = 0.5;
+orbitControls.maxDistance = Infinity;
 orbitControls.maxPolarAngle = Math.PI / 2 + 0.1;
 orbitControls.update();
 

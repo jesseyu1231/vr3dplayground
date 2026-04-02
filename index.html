@@ -27,7 +27,7 @@
   <button class="toolbar-btn" id="env-btn">&#x1f305; Env</button>
   <button class="toolbar-btn" id="snap-btn">&#x1f4d0; Snap</button>
   <button class="toolbar-btn" id="export-btn">&#x1f4be; Save</button>
-  <button class="toolbar-btn" id="export-glb-btn">&#x1f4e4; Export GLB</button>
+  <button class="toolbar-btn" id="export-glb-btn">&#x1f4e4; Final Delivery Export</button>
   <button class="toolbar-btn" id="import-scene-btn">&#x1f4c2; Load Scene</button>
   <button class="toolbar-btn" id="asset-panel-btn">&#x1f4cb; Assets</button>
   <button class="toolbar-btn" id="undo-btn" title="Undo (⌘Z)">&#x21a9;&#xfe0f; Undo</button>
@@ -35,6 +35,7 @@
   <button class="toolbar-btn" id="character-btn">&#x1f9cd; Character</button>
   <button class="toolbar-btn" id="character-reset-btn" style="display:none">&#x21a9;&#xfe0f; Reset Char</button>
   <button class="toolbar-btn" id="dev-btn">&#x1f6e0;&#xfe0f; Dev</button>
+  <button class="toolbar-btn" id="chat-toggle-btn">&#x1f4ac; Chat</button>
 </div>
 
 <!-- Transform Mode (desktop) -->
@@ -119,6 +120,9 @@
 <input type="file" id="file-input" accept=".glb,.gltf" />
 <input type="file" id="character-input" accept=".glb" style="display:none" />
 <input type="file" id="scene-file-input" accept=".zip,.glb" style="display:none" />
+
+<!-- Polygon Budget Warning -->
+<div id="poly-warning" style="display:none;"></div>
 
 <!-- Asset Panel -->
 <div id="asset-panel">

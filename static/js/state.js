@@ -9,7 +9,7 @@ import * as THREE from 'three';
 export const scene = new THREE.Scene();
 
 // ── Camera + dolly (VR locomotion) ──
-export const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+export const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 5000);
 camera.position.set(0, 1.6, 4);
 
 export const dolly = new THREE.Group();

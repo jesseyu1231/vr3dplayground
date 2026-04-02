@@ -23,7 +23,7 @@ UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".glb"}
-MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
 POE_API_KEY = os.getenv("POE_API_KEY", "pTIrv4aibqRCwiHX2J1KltW9AyLbgivmI9tVzsdAyeQ")
 BOT_NAME = os.getenv("POE_BOT_NAME", "ai_ministerbot")
@@ -213,7 +213,7 @@ async def upload_model(file: UploadFile = File(...)):
 
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_SIZE:
-        return JSONResponse({"error": "File too large (max 50 MB)."}, status_code=400)
+        return JSONResponse({"error": "File too large (max 100 MB)."}, status_code=400)
 
     safe_name = f"{uuid.uuid4().hex}{ext}"
     dest = UPLOAD_DIR / safe_name

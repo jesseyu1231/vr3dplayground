@@ -25,7 +25,7 @@ const UPLOAD_DIR = isPackaged
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const ALLOWED_EXT    = new Set(['.glb']);
-const MAX_UPLOAD_MB  = 50;
+const MAX_UPLOAD_MB  = 100;
 const CURSOR_COLORS  = [
   '#ff4444', '#44ff44', '#4488ff', '#ff44ff',
   '#ffaa00', '#00ffcc', '#ff6600', '#aa44ff',

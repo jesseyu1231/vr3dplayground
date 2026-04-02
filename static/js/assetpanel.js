@@ -25,8 +25,16 @@ export function focusOnObject(obj) {
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z, 0.5);
-  const dist = maxDim * 2.5;
+
+  // Calculate distance so the object fills ~60% of the view
+  const fov = camera.fov * (Math.PI / 180);
+  const aspect = camera.aspect;
+  const hFov = 2 * Math.atan(Math.tan(fov / 2) * aspect);
+  const effectiveFov = Math.min(fov, hFov);
+  const dist = (maxDim / 2) / Math.tan(effectiveFov / 2) * 1.2;
+
   const dir = new THREE.Vector3().subVectors(camera.position, orbitControls.target).normalize();
+  if (dir.lengthSq() < 0.001) dir.set(0, 0.3, 1).normalize();
   camera.position.copy(center).addScaledVector(dir, dist);
   orbitControls.target.copy(center);
   orbitControls.update();

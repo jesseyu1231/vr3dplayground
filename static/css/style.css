@@ -9,6 +9,17 @@ body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-
 }
 #mode-badge small { display: block; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 400; margin-top: 2px; }
 
+/* Polygon Budget Warning */
+.poly-warn {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  z-index: 20; padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  pointer-events: none; white-space: nowrap; backdrop-filter: blur(8px);
+  transition: background 0.3s, color 0.3s;
+}
+.poly-ok { background: rgba(40,80,40,0.75); color: #8f8; border: 1px solid rgba(100,255,100,0.2); }
+.poly-caution { background: rgba(100,80,10,0.85); color: #ffd54f; border: 1px solid rgba(255,200,50,0.3); }
+.poly-danger { background: rgba(120,20,20,0.9); color: #ff5252; border: 1px solid rgba(255,80,80,0.4); }
+
 /* Chat Panel (desktop) */
 #chat-panel {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);

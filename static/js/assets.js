@@ -4,13 +4,26 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import JSZip from 'jszip';
-import { scene, importedObjects, userLights, userContentGroup, genId, wsSend } from './state.js';
+import { scene, renderer, importedObjects, userLights, userContentGroup, genId, wsSend } from './state.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo } from './undo.js';
 import { addMessage } from './chat.js';
 
+// ── DRACO compressed mesh support ──
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
+
+// ── KTX2/Basis texture compression support ──
+const ktx2Loader = new KTX2Loader();
+ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/basis/');
+ktx2Loader.detectSupport(renderer);
+
 const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+gltfLoader.setKTX2Loader(ktx2Loader);
 
 // ── Normalize model size + placement ──
 export function normalizeAndPlace(object, pos) {
@@ -138,12 +151,29 @@ export function deleteSelected(selectedObject) {
   } else {
     pushUndo({ type: 'object_delete', obj: selectedObject });
     selectedObject.removeFromParent();
+    disposeObject(selectedObject);
     const idx = importedObjects.indexOf(selectedObject);
     if (idx !== -1) importedObjects.splice(idx, 1);
     if (selectedObject.userData.id) wsSend({ type: 'object_delete', id: selectedObject.userData.id });
   }
   document.dispatchEvent(new CustomEvent('deselect-all'));
   refreshAssetPanel();
+}
+
+// ── Dispose GPU resources (geometry, materials, textures) ──
+function disposeObject(obj) {
+  obj.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of materials) {
+        for (const val of Object.values(mat)) {
+          if (val && typeof val.dispose === 'function') val.dispose();
+        }
+        mat.dispose();
+      }
+    }
+  });
 }
 
 export function duplicateSelected(selectedObject) {
