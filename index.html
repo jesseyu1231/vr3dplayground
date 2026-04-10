@@ -36,6 +36,7 @@
   <button class="toolbar-btn" id="character-reset-btn" style="display:none">&#x21a9;&#xfe0f; Reset Char</button>
   <button class="toolbar-btn" id="dev-btn">&#x1f6e0;&#xfe0f; Dev</button>
   <button class="toolbar-btn" id="chat-toggle-btn">&#x1f4ac; Chat</button>
+  <button class="toolbar-btn" id="api-key-btn">&#x2699;&#xfe0f; API Key</button>
 </div>
 
 <!-- Transform Mode (desktop) -->
@@ -104,6 +105,19 @@
 <!-- Shortcuts hint -->
 <div id="shortcuts-hint">
   T: Move &middot; R: Rotate &middot; S: Scale &middot; Del: Delete &middot; D: Clone &middot; G: Snap &middot; &#x2318;Z: Undo &middot; &#x21e7;&#x2318;Z: Redo
+</div>
+
+<!-- API Key Settings -->
+<div id="api-key-panel" style="display:none;">
+  <div style="font-weight:600; margin-bottom:10px;">&#x2699;&#xfe0f; POE API Key</div>
+  <div style="margin-bottom:8px; font-size:12px; color:rgba(255,255,255,0.5);">Enter your POE API key to enable AI chat.</div>
+  <input id="api-key-input" type="password" placeholder="Paste your POE API key" autocomplete="off" />
+  <input id="bot-name-input" type="text" placeholder="Bot name (default: ai_ministerbot)" autocomplete="off" style="margin-top:6px;" />
+  <div style="display:flex;gap:6px;margin-top:8px;">
+    <button class="toolbar-btn" id="api-key-save-btn" style="flex:1;">Save</button>
+    <button class="toolbar-btn" id="api-key-cancel-btn" style="flex:1;">Cancel</button>
+  </div>
+  <div id="api-key-status" style="margin-top:8px;font-size:12px;"></div>
 </div>
 
 <!-- Desktop Chat -->

@@ -25,7 +25,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_EXTENSIONS = {".glb"}
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
-POE_API_KEY = os.getenv("POE_API_KEY", "pTIrv4aibqRCwiHX2J1KltW9AyLbgivmI9tVzsdAyeQ")
+POE_API_KEY = os.getenv("POE_API_KEY", "")
 BOT_NAME = os.getenv("POE_BOT_NAME", "ai_ministerbot")
 
 # ── Multiplayer ──────────────────────────────────────────
@@ -168,6 +168,25 @@ async def websocket_endpoint(ws: WebSocket):
         await manager.broadcast({"type": "user_leave", "userId": user_id})
 
 
+@app.get("/api/api-key-status")
+async def api_key_status():
+    return JSONResponse({"set": bool(POE_API_KEY), "botName": BOT_NAME})
+
+
+@app.post("/api/set-api-key")
+async def set_api_key(request: Request):
+    global POE_API_KEY, BOT_NAME
+    body = await request.json()
+    key = body.get("apiKey", "").strip()
+    bot = body.get("botName", "").strip()
+    if not key:
+        return JSONResponse({"error": "API key is required."}, status_code=400)
+    POE_API_KEY = key
+    if bot:
+        BOT_NAME = bot
+    return JSONResponse({"ok": True, "botName": BOT_NAME})
+
+
 def _call_poe_sync(user_text: str) -> str:
     """Run the synchronous POE SDK call (must run outside the async event loop)."""
     messages = [fp.ProtocolMessage(role="user", content=user_text)]
@@ -183,11 +202,18 @@ def _call_poe_sync(user_text: str) -> str:
 
 @app.post("/api/chat")
 async def chat(request: Request):
+    global POE_API_KEY, BOT_NAME
     body = await request.json()
     user_text = body.get("message", "")
 
     if not user_text.strip():
         return JSONResponse({"reply": "Please enter a message."}, status_code=400)
+
+    if not POE_API_KEY:
+        return JSONResponse(
+            {"reply": "No API key configured. Click the \u2699\ufe0f API Key button to set one."},
+            status_code=400,
+        )
 
     try:
         loop = asyncio.get_event_loop()

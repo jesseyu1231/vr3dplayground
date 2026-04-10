@@ -133,6 +133,65 @@ chatToggleBtn.addEventListener('click', () => {
 });
 chatToggleBtn.classList.add('active'); // visible by default
 
+// ── API Key Panel ──
+const apiKeyBtn     = document.getElementById('api-key-btn');
+const apiKeyPanel   = document.getElementById('api-key-panel');
+const apiKeyInput   = document.getElementById('api-key-input');
+const botNameInput  = document.getElementById('bot-name-input');
+const apiKeySaveBtn = document.getElementById('api-key-save-btn');
+const apiKeyCancelBtn = document.getElementById('api-key-cancel-btn');
+const apiKeyStatus  = document.getElementById('api-key-status');
+
+apiKeyBtn.addEventListener('click', () => {
+  const hidden = apiKeyPanel.style.display === 'none';
+  apiKeyPanel.style.display = hidden ? '' : 'none';
+  apiKeyBtn.classList.toggle('active', hidden);
+  if (hidden) checkApiKeyStatus();
+});
+
+apiKeyCancelBtn.addEventListener('click', () => {
+  apiKeyPanel.style.display = 'none';
+  apiKeyBtn.classList.remove('active');
+});
+
+apiKeySaveBtn.addEventListener('click', async () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) { apiKeyStatus.textContent = 'Please enter an API key.'; apiKeyStatus.style.color = '#ff5252'; return; }
+  try {
+    const res = await fetch('/api/set-api-key', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: key, botName: botNameInput.value.trim() }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      apiKeyStatus.textContent = 'API key saved! Bot: ' + data.botName;
+      apiKeyStatus.style.color = '#8f8';
+      apiKeyInput.value = '';
+      addMessage('API key configured successfully.', 'system');
+    } else {
+      apiKeyStatus.textContent = data.error || 'Failed to save.';
+      apiKeyStatus.style.color = '#ff5252';
+    }
+  } catch (e) {
+    apiKeyStatus.textContent = 'Network error.';
+    apiKeyStatus.style.color = '#ff5252';
+  }
+});
+
+async function checkApiKeyStatus() {
+  try {
+    const res = await fetch('/api/api-key-status');
+    const data = await res.json();
+    if (data.set) {
+      apiKeyStatus.textContent = 'Key is set. Bot: ' + data.botName;
+      apiKeyStatus.style.color = '#8f8';
+    } else {
+      apiKeyStatus.textContent = 'No API key configured yet.';
+      apiKeyStatus.style.color = '#ffd27e';
+    }
+  } catch { apiKeyStatus.textContent = ''; }
+}
+
 // ── Polygon budget warning (Quest 3S: ~1M triangles across 4 scenes → 250K per scene) ──
 const QUEST_TRI_BUDGET   = 250_000;  // per-scene triangle budget for Quest 3S
 const QUEST_WARN_RATIO   = 0.70;      // warn at 70%
