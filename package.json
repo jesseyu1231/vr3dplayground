@@ -1,0 +1,64 @@
+{
+  "name": "vr3dplayground-desktop",
+  "version": "1.0.0",
+  "description": "3D AI Environment — Desktop Builder",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac --arm64 --x64",
+    "build:win": "electron-builder --win --x64",
+    "build:all": "electron-builder --mac --arm64 --x64 && electron-builder --win --x64",
+    "build": "npm run build:all"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.0",
+    "uuid": "^10.0.0",
+    "ws": "^8.17.1"
+  },
+  "build": {
+    "appId": "com.ritsxrspace.3dbuilder",
+    "productName": "3D AI Environment",
+    "asar": false,
+    "files": [
+      "electron/**/*",
+      "server-node.js",
+      "index.html",
+      "static/css/**/*",
+      "static/js/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "static/uploads",
+        "to": "uploads",
+        "filter": ["!**/*"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ],
+      "identity": null
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "dmg": {
+      "title": "3D AI Environment",
+      "window": { "width": 540, "height": 380 }
+    }
+  }
+}
