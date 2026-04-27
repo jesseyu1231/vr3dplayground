@@ -511,7 +511,22 @@ export function initSceneExportImport({
           const zipEntry = zip.file(entry.file);
           if (!zipEntry) { console.warn(`[Import] missing file in zip: ${entry.file}`); continue; }
           const buf = await zipEntry.async('arraybuffer');
-          fileURLs[entry.file] = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+          // Upload to server so the URL is a real path accessible from any device (e.g. Quest headset)
+          const originalName = entry.file.split('/').pop();
+          try {
+            const formData = new FormData();
+            formData.append('file', new Blob([buf], { type: 'model/gltf-binary' }), originalName);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (res.ok) {
+              const data = await res.json();
+              fileURLs[entry.file] = data.url;
+            } else {
+              // Fallback to blob URL if upload fails (won't work cross-device but at least loads locally)
+              fileURLs[entry.file] = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+            }
+          } catch {
+            fileURLs[entry.file] = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+          }
         }
 
         if (grouped && objects.length > 0) {
@@ -538,6 +553,16 @@ export function initSceneExportImport({
                 model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
                 groupRoot.add(model);
                 loaded++;
+                // Broadcast each model individually so remote viewers (e.g. Quest) can load them
+                const modelId = genId();
+                model.userData.id = modelId;
+                model.userData.url = objUrl;
+                wsSend({ type: 'object_add', object: {
+                  id: modelId, url: objUrl,
+                  position: entry.position,
+                  quaternion: entry.quaternion,
+                  scale: entry.scale,
+                }});
                 resolve();
               }, undefined, resolve);
             });
@@ -554,6 +579,13 @@ export function initSceneExportImport({
             light.position.fromArray(li.position);
             groupRoot.add(light);
             if (li.type === 'directional') groupRoot.add(light.target);
+          }
+
+          // Also broadcast lights so remote viewers see them
+          for (const li of lights) {
+            const opts = { color: li.color, intensity: li.intensity, position: li.position };
+            if (li.type === 'directional' && addDirectionalLight) addDirectionalLight({ ...opts, remote: false });
+            else if (li.type === 'point' && addPointLight) addPointLight({ ...opts, remote: false });
           }
 
           document.dispatchEvent(new CustomEvent('select-object', { detail: groupRoot }));
