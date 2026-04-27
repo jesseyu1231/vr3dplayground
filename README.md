@@ -39,6 +39,26 @@ uvicorn server:app --reload --port 8000
 
 Navigate to **http://localhost:8000**
 
+## Meta Quest / Headset Hosting
+
+For Meta Quest Browser, WebXR only appears when the page is served from a secure context. On a real device that means **HTTPS**.
+
+### Quick launch for Quest
+
+```bash
+python serve_quest_https.py --port 8001
+```
+
+The helper will generate `cert.pem` and `key.pem` if needed, bind the server to your LAN, and print the headset URL.
+
+Open the printed URL from Quest Browser, for example:
+
+```text
+https://10.209.87.60:8001
+```
+
+Quest will warn that the certificate is self-signed. Choose **Advanced** and continue to the site. After that, the VR button should appear and immersive mode should be available.
+
 ## Project Structure
 
 ```
@@ -75,6 +95,15 @@ Navigate to **http://localhost:8000**
 - **Zoom**: Scroll to zoom in/out
 - **Pan**: Right-click drag to pan
 - **Chat**: Type in the input box and press Enter or click Send
+- **VR move**: Left Quest thumbstick moves in first person
+- **VR turn**: Right Quest thumbstick snap-turns in 30° steps for comfort
+
+## VR Comfort Notes
+
+- VR uses **first-person locomotion** instead of orbit camera controls.
+- Turning uses **snap turn** instead of smooth rotation to reduce nausea.
+- Strafing and backward movement are intentionally slower than forward movement.
+- Thumbsticks use a **deadzone and eased acceleration** to avoid sudden micro-motions.
 
 ## Performance & Asset Optimizations
 

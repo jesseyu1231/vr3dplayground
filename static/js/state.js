@@ -25,7 +25,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.xr.enabled = false;
+renderer.xr.enabled = true;
 
 // ── User content group (imported objects; used for export/sync) ──
 export const userContentGroup = new THREE.Group();

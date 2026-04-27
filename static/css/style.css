@@ -8,6 +8,16 @@ body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-
   color: rgba(255,255,255,0.75); font-size: 14px; font-weight: 700;
 }
 #mode-badge small { display: block; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 400; margin-top: 2px; }
+#xr-status.xr-ready { color: #8f8; }
+#xr-status.xr-warn { color: #ffd27e; }
+#xr-status.xr-error { color: #ff9b9b; }
+
+#vr-enter-btn {
+  z-index: 30 !important;
+  left: 16px !important;
+  right: auto !important;
+  bottom: 20px !important;
+}
 
 /* Polygon Budget Warning */
 .poly-warn {
@@ -75,6 +85,19 @@ body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-
 }
 .toolbar-btn:hover { background: rgba(60,60,100,0.85); }
 .toolbar-btn.active { background: rgba(74,124,255,0.6); border-color: rgba(74,124,255,0.8); }
+
+.xr-session-active #mode-badge,
+.xr-session-active #toolbar,
+.xr-session-active #transform-modes,
+.xr-session-active #chat-panel,
+.xr-session-active #asset-panel,
+.xr-session-active #light-props,
+.xr-session-active #api-key-panel,
+.xr-session-active #shortcuts-hint,
+.xr-session-active #poly-warning,
+.xr-session-active #vr-enter-btn {
+  display: none !important;
+}
 
 /* Transform mode buttons */
 #transform-modes {

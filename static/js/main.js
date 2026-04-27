@@ -40,6 +40,9 @@ import { connectWS, lerpRemoteCursors, sendCursorUpdate } from './multiplayer.js
 // ── Dev Panel ──
 import { initDevPanel, updateDevPanel } from './devpanel.js';
 
+// ── VR ──
+import { initVRExperience, updateVRExperience } from './vr.js';
+
 // ── Init ──────────────────────────────────────────────────
 const clock = new THREE.Clock();
 
@@ -122,6 +125,54 @@ document.getElementById('export-glb-btn').addEventListener('click', async () => 
 initKeyboard(doDelete, doDuplicate);
 
 initDevPanel();
+
+const xrStatus = document.getElementById('xr-status');
+const localhostHosts = new Set(['localhost', '127.0.0.1']);
+
+function setXRStatus(text, tone = '') {
+  if (!xrStatus) return;
+  xrStatus.textContent = text;
+  xrStatus.classList.remove('xr-ready', 'xr-warn', 'xr-error');
+  if (tone) xrStatus.classList.add(tone);
+}
+
+function updateXRAvailabilityStatus() {
+  const requiresHttps = !window.isSecureContext && !localhostHosts.has(location.hostname);
+  if (requiresHttps) {
+    setXRStatus(`XR: HTTPS required on headset. Open https://${location.host}`, 'xr-warn');
+    return;
+  }
+
+  if (!navigator.xr) {
+    setXRStatus('XR: WebXR unavailable in this browser.', 'xr-error');
+    return;
+  }
+
+  navigator.xr.isSessionSupported('immersive-vr')
+    .then((supported) => {
+      if (supported) {
+        setXRStatus('XR: VR mode ready.', 'xr-ready');
+      } else {
+        setXRStatus('XR: immersive VR unavailable on this device.', 'xr-error');
+      }
+    })
+    .catch(() => {
+      setXRStatus('XR: could not query WebXR support.', 'xr-error');
+    });
+}
+
+function initWebXR() {
+  initVRExperience({
+    orbitControls,
+    tControls,
+    setXRStatus,
+    refreshXRStatus: updateXRAvailabilityStatus,
+  });
+
+  updateXRAvailabilityStatus();
+}
+
+initWebXR();
 
 // ── Chat panel toggle ──
 const chatPanel = document.getElementById('chat-panel');
@@ -282,12 +333,16 @@ addEventListener('resize', () => {
 
 // ── Render loop ──
 renderer.setAnimationLoop(() => {
-  const t = clock.getElapsedTime();
+  const delta = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
 
   animateHumanoid(t, isTalking);
 
-  orbitControls.update();
+  if (!renderer.xr.isPresenting) {
+    orbitControls.update();
+  }
   updateSpeechBubbleFrame();
+  updateVRExperience(delta);
 
   sendCursorUpdate();
   lerpRemoteCursors();
