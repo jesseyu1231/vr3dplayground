@@ -41,8 +41,18 @@ export let selectedObject = null;
 export function setSelectedObject(obj) { selectedObject = obj; }
 
 // ── Multiplayer identity ──
-export const myName = localStorage.getItem('mp_name') || 'User';
+export function normalizePlayerName(name) {
+  const cleaned = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 20);
+  return cleaned || 'User';
+}
+
+export let myName = normalizePlayerName(localStorage.getItem('mp_name') || 'User');
 localStorage.setItem('mp_name', myName);
+export function setMyName(name) {
+  myName = normalizePlayerName(name);
+  localStorage.setItem('mp_name', myName);
+  return myName;
+}
 export const myRole = /OculusBrowser|Quest/i.test(navigator.userAgent) ? 'viewer' : 'editor';
 export let myUserId = null;
 export function setMyUserId(id) { myUserId = id; }

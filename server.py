@@ -8,6 +8,7 @@ import os
 import uuid
 import asyncio
 import json
+import tempfile
 from functools import partial as functools_partial
 from pathlib import Path
 
@@ -25,8 +26,37 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_EXTENSIONS = {".glb"}
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
-POE_API_KEY = os.getenv("POE_API_KEY", "")
-BOT_NAME = os.getenv("POE_BOT_NAME", "ai_ministerbot")
+CONFIG_PATH = BASE_DIR / "config.local.json"
+
+
+def _load_local_config() -> dict:
+    """Load saved API key and bot name from config.local.json (gitignored).
+    Falls back to environment variables. Edit this file (or set env vars) on the
+    hosting computer so the values are picked up automatically — the headset
+    talks to this server, so it inherits them with no extra setup.
+    """
+    if CONFIG_PATH.exists():
+        try:
+            return json.loads(CONFIG_PATH.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[config] Failed to read {CONFIG_PATH.name}: {e}")
+    return {}
+
+
+def _save_local_config(api_key: str, bot_name: str) -> None:
+    """Persist the API key and bot name so they survive server restarts."""
+    try:
+        CONFIG_PATH.write_text(json.dumps(
+            {"poeApiKey": api_key, "poeBotName": bot_name},
+            indent=2,
+        ))
+    except OSError as e:
+        print(f"[config] Failed to write {CONFIG_PATH.name}: {e}")
+
+
+_cfg = _load_local_config()
+POE_API_KEY = _cfg.get("poeApiKey") or os.getenv("POE_API_KEY", "")
+BOT_NAME = _cfg.get("poeBotName") or os.getenv("POE_BOT_NAME", "ai_ministerbot")
 
 # ── Multiplayer ──────────────────────────────────────────
 CURSOR_COLORS = [
@@ -43,8 +73,14 @@ class ConnectionManager:
             "objects": {},
             "lights": {},
             "envIndex": 0,
+            "character": None,
         }
         self._color_idx = 0
+
+    @staticmethod
+    def sanitize_name(name: str) -> str:
+        cleaned = " ".join(str(name or "").split()).strip()[:20]
+        return cleaned or "User"
 
     def next_color(self) -> str:
         c = CURSOR_COLORS[self._color_idx % len(CURSOR_COLORS)]
@@ -53,6 +89,7 @@ class ConnectionManager:
 
     async def connect(self, ws: WebSocket, user_id: str, name: str, role: str):
         await ws.accept()
+        name = self.sanitize_name(name)
         color = self.next_color()
         self.clients[user_id] = {"ws": ws, "name": name, "color": color, "role": role}
         users = {
@@ -94,7 +131,37 @@ class ConnectionManager:
             await self.broadcast({**data, "userId": user_id}, exclude=user_id)
             return
 
+        if msg_type == "user_rename":
+            client = self.clients.get(user_id)
+            if not client:
+                return
+            name = self.sanitize_name(data.get("name", client["name"]))
+            old_name = client["name"]
+            client["name"] = name
+            await self.broadcast(
+                {
+                    "type": "user_rename",
+                    "userId": user_id,
+                    "name": name,
+                    "oldName": old_name,
+                    "color": client["color"],
+                    "role": client["role"],
+                },
+                exclude=user_id,
+            )
+            return
+
         if role != "editor":
+            return
+
+        if msg_type == "scene_reset":
+            self.scene_state = {
+                "objects": {},
+                "lights": {},
+                "envIndex": data.get("envIndex", 0),
+                "character": None,
+            }
+            await self.broadcast({**data, "userId": user_id}, exclude=user_id)
             return
 
         if msg_type == "object_add":
@@ -139,14 +206,40 @@ class ConnectionManager:
             self.scene_state["envIndex"] = data.get("envIndex", 0)
             await self.broadcast({**data, "userId": user_id}, exclude=user_id)
 
+        elif msg_type == "character_set":
+            character = data.get("character")
+            if character and character.get("url"):
+                self.scene_state["character"] = {
+                    "url": character["url"],
+                    "name": character.get("name", "Character"),
+                }
+                await self.broadcast({**data, "userId": user_id}, exclude=user_id)
+
+        elif msg_type == "character_clear":
+            self.scene_state["character"] = None
+            await self.broadcast({**data, "userId": user_id}, exclude=user_id)
+
 
 manager = ConnectionManager()
+
+
+@app.on_event("startup")
+async def _warm_stt_model():
+    # Pull the whisper model into memory in the background so the first
+    # /api/stt request doesn't pay the model-load cost.
+    async def _bg():
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _load_stt_model)
+        except Exception as e:
+            print(f"[stt] warm-up failed (continuing anyway): {e}")
+    asyncio.create_task(_bg())
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     params = dict(ws.query_params)
-    name = params.get("name", "Anonymous")[:20]
+    name = ConnectionManager.sanitize_name(params.get("name", "User"))
     role = params.get("role", "viewer")
     if role not in ("editor", "viewer"):
         role = "viewer"
@@ -184,6 +277,7 @@ async def set_api_key(request: Request):
     POE_API_KEY = key
     if bot:
         BOT_NAME = bot
+    _save_local_config(POE_API_KEY, BOT_NAME)
     return JSONResponse({"ok": True, "botName": BOT_NAME})
 
 
@@ -226,6 +320,65 @@ async def chat(request: Request):
         )
 
     return JSONResponse({"reply": full_response})
+
+
+# ── Speech-to-text (server-side Whisper) ────────────────────────────────
+# Lazy-loaded so the server still boots fast and never blocks for the model
+# until the first /api/stt call. faster-whisper picks the right backend for
+# the host (CPU on Intel/AMD, CoreML on Apple Silicon when available).
+STT_MODEL_NAME = os.getenv("STT_MODEL", "base.en")
+_stt_model = None
+_stt_lock = asyncio.Lock()
+
+
+def _load_stt_model():
+    global _stt_model
+    if _stt_model is not None:
+        return _stt_model
+    from faster_whisper import WhisperModel
+    print(f"[stt] loading faster-whisper model: {STT_MODEL_NAME}")
+    _stt_model = WhisperModel(STT_MODEL_NAME, device="cpu", compute_type="int8")
+    print("[stt] model ready")
+    return _stt_model
+
+
+def _transcribe_sync(audio_path: str) -> str:
+    model = _load_stt_model()
+    segments, _ = model.transcribe(
+        audio_path,
+        beam_size=1,
+        vad_filter=True,
+        language="en",
+    )
+    return " ".join(seg.text.strip() for seg in segments).strip()
+
+
+@app.post("/api/stt")
+async def stt(file: UploadFile = File(...)):
+    contents = await file.read()
+    if len(contents) > 25 * 1024 * 1024:
+        return JSONResponse({"error": "Audio too large (max 25 MB)."}, status_code=400)
+    if not contents:
+        return JSONResponse({"text": ""})
+
+    suffix = Path(file.filename or "audio.webm").suffix or ".webm"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    try:
+        async with _stt_lock:        # serialize — single model instance
+            loop = asyncio.get_event_loop()
+            text = await loop.run_in_executor(None, _transcribe_sync, tmp_path)
+        return JSONResponse({"text": text})
+    except Exception as e:
+        print(f"[stt] error: {e}")
+        return JSONResponse({"error": f"Transcription failed: {e}"}, status_code=500)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 @app.post("/api/upload")

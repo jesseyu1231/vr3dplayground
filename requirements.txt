@@ -1,3 +1,5 @@
 fastapi
 uvicorn[standard]
 fastapi_poe
+python-multipart
+faster-whisper

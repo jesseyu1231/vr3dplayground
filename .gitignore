@@ -13,6 +13,9 @@ build/
 key.pem
 cert.pem
 
+# Local secrets (POE API key + bot name)
+config.local.json
+
 # Uploaded 3D assets (runtime-generated, can be large)
 static/uploads/*
 !static/uploads/.gitkeep

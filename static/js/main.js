@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 
 // ── State (must be first — other modules import from it) ──
-import { scene, camera, renderer, selectedObject } from './state.js';
+import { scene, camera, renderer, selectedObject, myName, wsSend } from './state.js';
 
 // ── Scene setup ──
 import { initScene } from './scene.js';
@@ -30,12 +30,12 @@ import { importedObjects, userLights } from './state.js';
 import { initAssetPanel, assetPanel } from './assetpanel.js';
 
 // ── Chat ──
-import { initChat, isTalking, updateSpeechBubbleFrame, addMessage } from './chat.js';
+import { initChat, isTalking, updateSpeechBubbleFrame, addMessage, sendMessage } from './chat.js';
 
 import { hideLightProps } from './lights.js';
 
 // ── Multiplayer ──
-import { connectWS, lerpRemoteCursors, sendCursorUpdate } from './multiplayer.js';
+import { connectWS, lerpRemoteCursors, sendCursorUpdate, updateMyDisplayName } from './multiplayer.js';
 
 // ── Dev Panel ──
 import { initDevPanel, updateDevPanel } from './devpanel.js';
@@ -128,6 +128,48 @@ initDevPanel();
 
 const xrStatus = document.getElementById('xr-status');
 const localhostHosts = new Set(['localhost', '127.0.0.1']);
+const nameToggleBtn = document.getElementById('name-toggle-btn');
+const namePanel = document.getElementById('name-panel');
+const displayNameInput = document.getElementById('display-name-input');
+const displayNameSaveBtn = document.getElementById('display-name-save-btn');
+
+displayNameInput.value = myName;
+
+function setNamePanelOpen(open) {
+  namePanel.classList.toggle('hidden', !open);
+  nameToggleBtn.classList.toggle('active', open);
+  if (open) {
+    displayNameInput.focus();
+    displayNameInput.select();
+  }
+}
+
+function saveDisplayName() {
+  const updated = updateMyDisplayName(displayNameInput.value);
+  displayNameInput.value = updated;
+  addMessage('Display name updated to ' + updated, 'system');
+  setNamePanelOpen(false);
+}
+
+nameToggleBtn.addEventListener('click', () => {
+  setNamePanelOpen(namePanel.classList.contains('hidden'));
+});
+
+displayNameSaveBtn.addEventListener('click', saveDisplayName);
+displayNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveDisplayName();
+  } else if (e.key === 'Escape') {
+    setNamePanelOpen(false);
+  }
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (namePanel.classList.contains('hidden')) return;
+  if (namePanel.contains(e.target) || nameToggleBtn.contains(e.target)) return;
+  setNamePanelOpen(false);
+});
 
 function setXRStatus(text, tone = '') {
   if (!xrStatus) return;
@@ -167,6 +209,7 @@ function initWebXR() {
     tControls,
     setXRStatus,
     refreshXRStatus: updateXRAvailabilityStatus,
+    chat: { sendMessage },
   });
 
   updateXRAvailabilityStatus();
@@ -306,9 +349,22 @@ characterInput.addEventListener('change', async () => {
   const safeName = file.name;
   characterInput.value = '';
   loadMixamoFromBuffer(buf, safeName,
-    () => {
+    async () => {
       characterResetBtn.style.display = '';
       addMessage('Mixamo character loaded: ' + safeName, 'system');
+      try {
+        const formData = new FormData();
+        formData.append('file', new Blob([buf], { type: 'model/gltf-binary' }), safeName);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok) {
+          wsSend({ type: 'character_set', character: { url: data.url, name: safeName } });
+        } else {
+          addMessage(data.error || 'Character sync upload failed.', 'system');
+        }
+      } catch (err) {
+        addMessage('Character sync upload failed: ' + (err.message || 'unknown error'), 'system');
+      }
     },
     (err) => {
       addMessage('Failed to load character: ' + (err.message || 'unknown error'), 'system');
@@ -318,6 +374,7 @@ characterInput.addEventListener('change', async () => {
 characterResetBtn.addEventListener('click', () => {
   clearMixamoModel();
   characterResetBtn.style.display = 'none';
+  wsSend({ type: 'character_clear' });
   addMessage('Character reset to default.', 'system');
 });
 

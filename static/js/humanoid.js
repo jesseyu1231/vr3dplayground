@@ -278,6 +278,23 @@ export function loadMixamoFromBuffer(buf, name, onSuccess, onError) {
   );
 }
 
+export function loadMixamoFromUrl(url, name, onSuccess, onError) {
+  mixamoSourceFile = null;
+  _gltfLoader.load(
+    url,
+    (gltf) => {
+      setMixamoModel(gltf.scene);
+      mixamoSourceFile = null;
+      if (onSuccess) onSuccess(name);
+    },
+    undefined,
+    (err) => {
+      console.error('[Character] remote load error:', err);
+      if (onError) onError(err);
+    },
+  );
+}
+
 export function createHumanoid() {
   humanoid = new THREE.Group();
 

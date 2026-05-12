@@ -19,6 +19,135 @@ body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-
   bottom: 20px !important;
 }
 
+#name-toggle-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 20px;
+  z-index: 22;
+}
+
+#exit-vr-btn {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 32;
+  display: none;
+  background: rgba(150, 32, 32, 0.9);
+  border-color: rgba(255, 150, 150, 0.35);
+}
+
+#exit-vr-btn:hover {
+  background: rgba(180, 40, 40, 0.95);
+}
+
+#vr-exit-prompt {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 34;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 15, 25, 0.94);
+  border: 1px solid rgba(255, 180, 180, 0.24);
+  backdrop-filter: blur(12px);
+  color: #fff;
+}
+
+#vr-exit-prompt.hidden {
+  display: none;
+}
+
+#vr-exit-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+}
+
+#vr-exit-copy {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.72);
+}
+
+#vr-exit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#vr-exit-confirm-btn {
+  background: rgba(150, 32, 32, 0.94);
+  border-color: rgba(255, 150, 150, 0.35);
+}
+
+#vr-exit-confirm-btn:hover {
+  background: rgba(180, 40, 40, 0.98);
+}
+
+#vr-exit-cancel-btn {
+  background: rgba(255,255,255,0.08);
+}
+
+#name-panel {
+  position: fixed; right: 16px; bottom: 64px; z-index: 21;
+  width: min(280px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15,15,25,0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+#name-panel.hidden {
+  display: none;
+}
+
+#name-panel-title {
+  color: rgba(255,255,255,0.78);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+#name-panel-row {
+  display: flex;
+  gap: 6px;
+}
+
+#display-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.32);
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+#display-name-input:focus {
+  border-color: rgba(120,180,255,0.55);
+}
+
+#display-name-save-btn {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg,#4a7cff,#6a4cff);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#display-name-save-btn:hover {
+  opacity: 0.86;
+}
+
 /* Polygon Budget Warning */
 .poly-warn {
   position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
@@ -97,6 +226,26 @@ body { overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-
 .xr-session-active #poly-warning,
 .xr-session-active #vr-enter-btn {
   display: none !important;
+}
+
+.xr-session-active #exit-vr-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  #name-toggle-btn {
+    bottom: 84px;
+  }
+
+  #name-panel {
+    bottom: 128px;
+  }
+
+  #vr-exit-prompt {
+    bottom: 92px;
+  }
 }
 
 /* Transform mode buttons */

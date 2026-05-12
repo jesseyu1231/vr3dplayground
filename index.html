@@ -18,6 +18,26 @@
   <small id="connected-count"></small>
 </div>
 
+<button class="toolbar-btn" id="name-toggle-btn" type="button">Name</button>
+<button class="toolbar-btn" id="exit-vr-btn" type="button">Exit VR</button>
+
+<div id="vr-exit-prompt" class="hidden">
+  <div id="vr-exit-title">Exit VR?</div>
+  <div id="vr-exit-copy">Press B again to leave VR, or choose an option below.</div>
+  <div id="vr-exit-actions">
+    <button class="toolbar-btn" id="vr-exit-confirm-btn" type="button">Exit VR</button>
+    <button class="toolbar-btn" id="vr-exit-cancel-btn" type="button">Stay</button>
+  </div>
+</div>
+
+<div id="name-panel" class="hidden">
+  <div id="name-panel-title">Player Name</div>
+  <div id="name-panel-row">
+    <input id="display-name-input" type="text" maxlength="20" placeholder="Set your display name" autocomplete="nickname" />
+    <button id="display-name-save-btn">Update</button>
+  </div>
+</div>
+
 <!-- Desktop Toolbar -->
 <div id="toolbar">
   <button class="toolbar-btn" id="import-btn">&#x1f4e6; Import 3D</button>

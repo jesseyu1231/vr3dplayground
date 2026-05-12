@@ -357,6 +357,17 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(a.href);
 }
 
+async function uploadBufferToServer(buffer, filename) {
+  const formData = new FormData();
+  formData.append('file', new Blob([buffer], { type: 'model/gltf-binary' }), filename);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Upload failed');
+  }
+  return data.url;
+}
+
 
 export function initSceneExportImport({
   addDirectionalLight, addPointLight,
@@ -454,6 +465,9 @@ export function initSceneExportImport({
         const lights          = Array.isArray(manifest) ? [] : (manifest.lights || []);
         const characterFile   = Array.isArray(manifest) ? '' : (manifest.characterFile || '');
         const environmentIndex = Array.isArray(manifest) ? null : (manifest.environmentIndex ?? null);
+        const nextEnvIndex = environmentIndex !== null ? environmentIndex : (getEnvIndex ? getEnvIndex() : 0);
+
+        wsSend({ type: 'scene_reset', envIndex: nextEnvIndex });
 
         // ── Clear existing scene ──
         document.dispatchEvent(new CustomEvent('deselect-all'));
@@ -471,10 +485,10 @@ export function initSceneExportImport({
         refreshAssetPanel();
 
         // ── Environment ──
-        if (environmentIndex !== null && envPresets && envPresets[environmentIndex]) {
-          setEnvIndex && setEnvIndex(environmentIndex);
-          applyEnvPreset && applyEnvPreset(envPresets[environmentIndex]);
-          document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[environmentIndex].name;
+        if (envPresets && envPresets[nextEnvIndex]) {
+          setEnvIndex && setEnvIndex(nextEnvIndex);
+          applyEnvPreset && applyEnvPreset(envPresets[nextEnvIndex]);
+          document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[nextEnvIndex].name;
         }
 
         // ── Character ──
@@ -485,13 +499,22 @@ export function initSceneExportImport({
             const name = characterFile.split('/').pop();
             clearMixamoModel();
             loadMixamoFromBuffer(buf, name,
-              () => {
+              async () => {
                 document.getElementById('character-reset-btn').style.display = '';
                 addMessage('Character loaded: ' + name, 'system');
+                try {
+                  const uploadedUrl = await uploadBufferToServer(buf, name);
+                  wsSend({ type: 'character_set', character: { url: uploadedUrl, name } });
+                } catch (err) {
+                  addMessage('Character sync failed: ' + (err.message || 'upload error'), 'system');
+                }
               },
               (err) => addMessage('Failed to load character: ' + (err.message || 'unknown'), 'system')
             );
           }
+        } else if (clearMixamoModel) {
+          clearMixamoModel();
+          document.getElementById('character-reset-btn').style.display = 'none';
         }
 
         // ── Objects ──

@@ -59,6 +59,10 @@ https://10.209.87.60:8001
 
 Quest will warn that the certificate is self-signed. Choose **Advanced** and continue to the site. After that, the VR button should appear and immersive mode should be available.
 
+When a desktop editor loads a saved `scene.zip`, the shared multiplayer scene now resets and republishes so new Quest viewers join into the current scene state instead of an older one.
+
+Quest users can also change their multiplayer triangle label from the **Player Name** panel in the page UI. On supported Quest browsers, that panel can remain available as a DOM overlay in VR.
+
 ## Project Structure
 
 ```
@@ -80,6 +84,8 @@ Quest will warn that the certificate is self-signed. Choose **Advanced** and con
     │   ├── environment.js  # Sky/fog presets
     │   ├── controls.js     # OrbitControls, TransformControls, snap, click-select, keyboard
     │   ├── vr.js           # VRButton, XR controllers, hand panel, locomotion
+    │   ├── vrui.js         # In-VR wrist chat panel + QWERTY keyboard + pointer ray
+    │   ├── vrstt.js        # On-device speech-to-text (Whisper via transformers.js)
     │   ├── undo.js         # Undo/redo stack
     │   ├── chat.js         # addMessage, sendMessage, speech bubble
     │   ├── textsprite.js   # Canvas-to-3D sprite for VR chat panel
@@ -97,6 +103,10 @@ Quest will warn that the certificate is self-signed. Choose **Advanced** and con
 - **Chat**: Type in the input box and press Enter or click Send
 - **VR move**: Left Quest thumbstick moves in first person
 - **VR turn**: Right Quest thumbstick snap-turns in 30° steps for comfort
+- **VR chat panel**: A panel floats above the **left** controller showing recent chat. Aim the right controller laser at the panel and pull the trigger to click **Mic**, **Keys**, or **Send**.
+- **VR typing**: Pressing **Keys** spawns a world-space QWERTY keyboard in front of you; press triggers on the right controller to type each key. **Shift** is one-shot, **Enter** sends.
+- **VR voice (on-device)**: Pressing **Mic** records using the headset microphone and transcribes locally via Whisper (`@huggingface/transformers`). No audio leaves the device. The model (~40 MB) downloads the first time you press Mic and is cached for offline reuse.
+- **Player name**: Use the Player Name panel to rename your multiplayer cursor label
 
 ## VR Comfort Notes
 

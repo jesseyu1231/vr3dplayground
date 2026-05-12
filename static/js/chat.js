@@ -56,7 +56,8 @@ export function addMessage(text, type = 'bot') {
   chatOutput.appendChild(div);
   chatOutput.scrollTop = chatOutput.scrollHeight;
 
-  chatHistory3D.push((type === 'peer' ? '' : (type === 'user' ? 'You: ' : type === 'bot' ? 'AI: ' : '')) + (text.length > 80 ? text.substring(0, 80) + '\u2026' : text));
+  const prefix = type === 'peer' ? '' : type === 'user' ? 'You: ' : type === 'bot' ? 'AI: ' : '';
+  chatHistory3D.push(prefix + text);
 }
 
 // ── Send message ──

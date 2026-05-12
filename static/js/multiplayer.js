@@ -4,13 +4,14 @@
 import * as THREE from 'three';
 import {
   scene, camera, importedObjects, userLights, selectedObject,
-  myName, myRole, setMyUserId, setWs, wsSend,
+  myName, myRole, setMyName, setMyUserId, setWs, wsSend,
 } from './state.js';
 import { addDirectionalLight, addPointLight } from './lights.js';
 import { createPrimitive } from './assets.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { addMessage, showSpeechBubble } from './chat.js';
 import { applyEnvPreset, envPresets, setEnvIndex } from './environment.js';
+import { clearMixamoModel, loadMixamoFromUrl } from './humanoid.js';
 
 const remoteUsers   = new Map();
 const remoteCursors = new Map();
@@ -45,6 +46,51 @@ function createCursorMesh(name, color) {
 function updateConnectedCount(count) {
   const n = count ?? (remoteUsers.size + 1);
   document.getElementById('connected-count').textContent = n + ' connected';
+}
+
+function applyRemoteEnvironment(index = 0) {
+  if (!envPresets[index]) return;
+  setEnvIndex(index);
+  applyEnvPreset(envPresets[index]);
+  document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[index].name;
+}
+
+function resetRemoteScene({ resetCharacter = true, envIndex = 0 } = {}) {
+  document.dispatchEvent(new CustomEvent('deselect-all'));
+
+  for (const obj of [...importedObjects]) {
+    obj.removeFromParent();
+  }
+  importedObjects.length = 0;
+
+  for (const li of [...userLights]) {
+    scene.remove(li.light);
+    if (li.helper) scene.remove(li.helper);
+    scene.remove(li.handle);
+    if (li.light.target) scene.remove(li.light.target);
+  }
+  userLights.length = 0;
+
+  if (resetCharacter) {
+    clearMixamoModel();
+    const resetBtn = document.getElementById('character-reset-btn');
+    if (resetBtn) resetBtn.style.display = 'none';
+  }
+
+  applyRemoteEnvironment(envIndex);
+  refreshAssetPanel();
+}
+
+function refreshCursorLabel(userId) {
+  const cur = remoteCursors.get(userId);
+  if (!cur) return;
+  const pos = cur.mesh.position.clone();
+  const quat = cur.mesh.quaternion.clone();
+  scene.remove(cur.mesh);
+  const info = remoteUsers.get(userId) || { name: userId.slice(0, 4), color: '#ffffff' };
+  cur.mesh = createCursorMesh(info.name, info.color);
+  cur.mesh.position.copy(pos);
+  cur.mesh.quaternion.copy(quat);
 }
 
 function updateCursor(userId, msg) {
@@ -123,10 +169,21 @@ function reconstructScene(state, loadGLBFn) {
     if (li.type === 'directional') addDirectionalLight({ ...li, remote: true });
     else addPointLight({ ...li, remote: true });
   }
+  if (state.character?.url) {
+    loadMixamoFromUrl(
+      state.character.url,
+      state.character.name || 'Character',
+      () => {
+        const resetBtn = document.getElementById('character-reset-btn');
+        if (resetBtn) resetBtn.style.display = 'none';
+      },
+      (err) => addMessage('Failed to sync character: ' + (err.message || 'unknown error'), 'system')
+    );
+  } else {
+    clearMixamoModel();
+  }
   if (state.envIndex !== undefined) {
-    setEnvIndex(state.envIndex);
-    applyEnvPreset(envPresets[state.envIndex]);
-    document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[state.envIndex].name;
+    applyRemoteEnvironment(state.envIndex);
   }
 }
 
@@ -146,6 +203,13 @@ function handleWSMessage(msg, loadGLBFn) {
       updateConnectedCount();
       addMessage(msg.name + ' joined', 'system');
       break;
+    case 'user_rename': {
+      const previous = remoteUsers.get(msg.userId)?.name || 'Someone';
+      remoteUsers.set(msg.userId, { name: msg.name, color: msg.color, role: msg.role });
+      refreshCursorLabel(msg.userId);
+      addMessage(previous + ' is now ' + msg.name, 'system');
+      break;
+    }
     case 'user_leave': {
       const leaveName = remoteUsers.get(msg.userId)?.name || 'Someone';
       remoteUsers.delete(msg.userId);
@@ -154,6 +218,9 @@ function handleWSMessage(msg, loadGLBFn) {
       addMessage(leaveName + ' left', 'system');
       break;
     }
+    case 'scene_reset':
+      resetRemoteScene({ envIndex: msg.envIndex ?? 0 });
+      break;
     case 'user_move':
       updateCursor(msg.userId, msg);
       break;
@@ -191,10 +258,27 @@ function handleWSMessage(msg, loadGLBFn) {
       removeRemoteLight(msg.id);
       break;
     case 'env_change':
-      setEnvIndex(msg.envIndex);
-      applyEnvPreset(envPresets[msg.envIndex]);
-      document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[msg.envIndex].name;
+      applyRemoteEnvironment(msg.envIndex);
       break;
+    case 'character_set':
+      if (msg.character?.url) {
+        loadMixamoFromUrl(
+          msg.character.url,
+          msg.character.name || 'Character',
+          () => {
+            const resetBtn = document.getElementById('character-reset-btn');
+            if (resetBtn) resetBtn.style.display = 'none';
+          },
+          (err) => addMessage('Failed to sync character: ' + (err.message || 'unknown error'), 'system')
+        );
+      }
+      break;
+    case 'character_clear': {
+      clearMixamoModel();
+      const resetBtn = document.getElementById('character-reset-btn');
+      if (resetBtn) resetBtn.style.display = 'none';
+      break;
+    }
     case 'chat':
       if (msg.chatType === 'user' && msg.name) {
         addMessage(msg.name + ': ' + msg.text, 'peer');
@@ -226,6 +310,12 @@ export function sendCursorUpdate() {
   const cq = new THREE.Quaternion();
   camera.getWorldQuaternion(cq);
   wsSend({ type: 'user_move', position: cp.toArray(), quaternion: [cq.x, cq.y, cq.z, cq.w] });
+}
+
+export function updateMyDisplayName(nextName) {
+  const name = setMyName(nextName);
+  wsSend({ type: 'user_rename', name });
+  return name;
 }
 
 // ── Connect ──
