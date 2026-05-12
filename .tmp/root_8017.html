@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3D AI Environment</title>
+<link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="speech-bubble"></div>
+
+<!-- Desktop Mode Badge -->
+<div id="mode-badge">
+  3D AI Environment
+  <small id="xr-status">XR: checking support...</small>
+  <small id="connected-count"></small>
+</div>
+
+<button class="toolbar-btn" id="name-toggle-btn" type="button">Name</button>
+<button class="toolbar-btn" id="exit-vr-btn" type="button">Exit VR</button>
+
+<div id="vr-exit-prompt" class="hidden">
+  <div id="vr-exit-title">Exit VR?</div>
+  <div id="vr-exit-copy">Press B again to leave VR, or choose an option below.</div>
+  <div id="vr-exit-actions">
+    <button class="toolbar-btn" id="vr-exit-confirm-btn" type="button">Exit VR</button>
+    <button class="toolbar-btn" id="vr-exit-cancel-btn" type="button">Stay</button>
+  </div>
+</div>
+
+<div id="name-panel" class="hidden">
+  <div id="name-panel-title">Player Name</div>
+  <div id="name-panel-row">
+    <input id="display-name-input" type="text" maxlength="20" placeholder="Set your display name" autocomplete="nickname" />
+    <button id="display-name-save-btn">Update</button>
+  </div>
+</div>
+
+<!-- Desktop Toolbar -->
+<div id="toolbar">
+  <button class="toolbar-btn" id="import-btn">&#x1f4e6; Import 3D</button>
+  <button class="toolbar-btn" id="add-dir-light-btn">&#x1f4a1; + Dir Light</button>
+  <button class="toolbar-btn" id="add-point-light-btn">&#x1f506; + Point Light</button>
+  <button class="toolbar-btn" id="delete-btn">&#x1f5d1;&#xfe0f; Delete</button>
+  <button class="toolbar-btn" id="duplicate-btn">&#x1f4cb; Clone</button>
+  <button class="toolbar-btn" id="env-btn">&#x1f305; Env</button>
+  <button class="toolbar-btn" id="snap-btn">&#x1f4d0; Snap</button>
+  <button class="toolbar-btn" id="export-btn">&#x1f4be; Save</button>
+  <button class="toolbar-btn" id="export-glb-btn">&#x1f4e4; Final Delivery Export</button>
+  <button class="toolbar-btn" id="import-scene-btn">&#x1f4c2; Load Scene</button>
+  <button class="toolbar-btn" id="asset-panel-btn">&#x1f4cb; Assets</button>
+  <button class="toolbar-btn" id="undo-btn" title="Undo (⌘Z)">&#x21a9;&#xfe0f; Undo</button>
+  <button class="toolbar-btn" id="redo-btn" title="Redo (⇧⌘Z)">&#x21aa;&#xfe0f; Redo</button>
+  <button class="toolbar-btn" id="character-btn">&#x1f9cd; Character</button>
+  <button class="toolbar-btn" id="character-reset-btn" style="display:none">&#x21a9;&#xfe0f; Reset Char</button>
+  <button class="toolbar-btn" id="dev-btn">&#x1f6e0;&#xfe0f; Dev</button>
+  <button class="toolbar-btn" id="chat-toggle-btn">&#x1f4ac; Chat</button>
+  <button class="toolbar-btn" id="api-key-btn">&#x2699;&#xfe0f; API Key</button>
+</div>
+
+<!-- Transform Mode (desktop) -->
+<div id="transform-modes">
+  <button class="toolbar-btn mode-btn active" data-mode="translate">Move (T)</button>
+  <button class="toolbar-btn mode-btn" data-mode="rotate">Rotate (R)</button>
+  <button class="toolbar-btn mode-btn" data-mode="scale">Scale (S)</button>
+</div>
+
+<!-- Light Properties Panel -->
+<div id="light-props">
+  <div style="font-weight:600;margin-bottom:10px;">&#x1f4a1; Light Properties</div>
+  <div class="prop-row">
+    <label>Color</label>
+    <input type="color" id="light-color" value="#ffffff">
+  </div>
+  <div class="prop-row">
+    <label>Intensity</label>
+    <input type="range" id="light-intensity" min="0" max="10" step="0.1" value="1">
+    <span id="light-intensity-val" style="width:30px;text-align:right;">1.0</span>
+  </div>
+  <button class="toolbar-btn" id="light-delete-btn" style="width:100%;margin-top:6px;">Remove Light</button>
+</div>
+
+<!-- Dev Panel -->
+<div id="dev-panel">
+  <div class="dev-header">
+    <span>&#x1f6e0;&#xfe0f; Dev Controls</span>
+    <button id="dev-close-btn" class="dev-close">&#x2715;</button>
+  </div>
+
+  <div class="dev-section">Character Animation</div>
+  <button class="dev-btn" id="dev-talk-toggle">&#x1f4ac; Force Talking: OFF</button>
+  <button class="dev-btn" id="dev-talk-burst">&#x23f1;&#xfe0f; Talk Burst (3s)</button>
+  <div class="dev-row">
+    <label class="dev-label">talkTimer</label>
+    <span id="dev-talk-timer-val" class="dev-val">0.00</span>
+  </div>
+
+  <div class="dev-section">Bone Tweaks (Idle)</div>
+  <select id="dev-bone-select" class="dev-select">
+    <option value="">— select bone —</option>
+  </select>
+  <div class="dev-row" style="margin-top:6px;"><label class="dev-label">X</label><input type="range" class="dev-slider" id="bt-x" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-x-val">0.00</span></div>
+  <div class="dev-row"><label class="dev-label">Y</label><input type="range" class="dev-slider" id="bt-y" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-y-val">0.00</span></div>
+  <div class="dev-row"><label class="dev-label">Z</label><input type="range" class="dev-slider" id="bt-z" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-z-val">0.00</span></div>
+  <button class="dev-btn" id="dev-log-pose" style="margin-top:4px;">&#x1f4cb; Log All Tweaks</button>
+
+  <div class="dev-section">Mixamo Bones</div>
+  <button class="dev-btn" id="dev-log-bones">&#x1f9b4; Log Tracked Bones</button>
+  <button class="dev-btn" id="dev-dump-bones">&#x1f4dc; Dump All Node Names</button>
+  <div id="dev-bones-list" class="dev-bones"></div>
+
+  <div class="dev-section">Scene Info</div>
+  <button class="dev-btn" id="dev-log-scene">&#x1f4cb; Log Scene Graph</button>
+  <div class="dev-row">
+    <label class="dev-label">Objects</label>
+    <span id="dev-object-count" class="dev-val">0</span>
+  </div>
+  <div class="dev-row">
+    <label class="dev-label">FPS</label>
+    <span id="dev-fps" class="dev-val">—</span>
+  </div>
+</div>
+
+<!-- Shortcuts hint -->
+<div id="shortcuts-hint">
+  T: Move &middot; R: Rotate &middot; S: Scale &middot; Del: Delete &middot; D: Clone &middot; G: Snap &middot; &#x2318;Z: Undo &middot; &#x21e7;&#x2318;Z: Redo
+</div>
+
+<!-- API Key Settings -->
+<div id="api-key-panel" style="display:none;">
+  <div style="font-weight:600; margin-bottom:10px;">&#x2699;&#xfe0f; POE API Key</div>
+  <div style="margin-bottom:8px; font-size:12px; color:rgba(255,255,255,0.5);">Enter your POE API key to enable AI chat.</div>
+  <input id="api-key-input" type="password" placeholder="Paste your POE API key" autocomplete="off" />
+  <input id="bot-name-input" type="text" placeholder="Bot name (default: ai_ministerbot)" autocomplete="off" style="margin-top:6px;" />
+  <div style="display:flex;gap:6px;margin-top:8px;">
+    <button class="toolbar-btn" id="api-key-save-btn" style="flex:1;">Save</button>
+    <button class="toolbar-btn" id="api-key-cancel-btn" style="flex:1;">Cancel</button>
+  </div>
+  <div id="api-key-status" style="margin-top:8px;font-size:12px;"></div>
+</div>
+
+<!-- Desktop Chat -->
+<div id="chat-panel">
+  <div id="chat-output">
+    <div class="msg msg-system">Type a message to talk to the AI character.</div>
+  </div>
+  <div id="chat-input-row">
+    <input id="chat-input" type="text" placeholder="Say something…" autocomplete="off" />
+    <button id="send-btn">Send</button>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".glb,.gltf" />
+<input type="file" id="character-input" accept=".glb" style="display:none" />
+<input type="file" id="scene-file-input" accept=".zip,.glb" style="display:none" />
+
+<!-- Import Modal (Primitives + Upload) -->
+<div id="import-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3>&#x1f4e6; Import 3D Object</h3>
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="primitives">Primitives</button>
+      <button class="modal-tab" data-tab="upload">Upload File</button>
+    </div>
+    <div id="tab-primitives" class="tab-panel">
+      <div class="primitive-grid">
+        <button class="primitive-btn selected" data-shape="cube">
+          <span class="primitive-icon">&#x25a0;</span>
+          <span class="primitive-label">Cube</span>
+        </button>
+        <button class="primitive-btn" data-shape="sphere">
+          <span class="primitive-icon">&#x25cf;</span>
+          <span class="primitive-label">Sphere</span>
+        </button>
+        <button class="primitive-btn" data-shape="cylinder">
+          <span class="primitive-icon">&#x25ae;</span>
+          <span class="primitive-label">Cylinder</span>
+        </button>
+        <button class="primitive-btn" data-shape="cone">
+          <span class="primitive-icon">&#x25b2;</span>
+          <span class="primitive-label">Cone</span>
+        </button>
+        <button class="primitive-btn" data-shape="torus">
+          <span class="primitive-icon">&#x25ef;</span>
+          <span class="primitive-label">Torus</span>
+        </button>
+      </div>
+      <div class="color-row">
+        <label>Color:</label>
+        <input type="color" id="primitive-color" value="#ffffff" />
+      </div>
+    </div>
+    <div id="tab-upload" class="tab-panel hidden">
+      <div class="upload-area" id="modal-upload-area">
+        <p>&#x1f4c1; Click to select a .glb or .gltf file</p>
+        <p class="upload-hint">Supported: .glb, .gltf</p>
+      </div>
+      <input type="file" id="modal-file-input" accept=".glb,.gltf" style="display:none" />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
+      <button class="modal-btn primary" id="modal-add">Add to Scene</button>
+    </div>
+  </div>
+</div>
+
+<!-- Polygon Budget Warning -->
+<div id="poly-warning" style="display:none;"></div>
+
+<!-- Asset Panel -->
+<div id="asset-panel">
+  <div class="ap-header"><span>&#x1f4cb; Scene Assets</span><span id="ap-count"></span></div>
+  <div id="ap-objects-section" class="ap-section">Objects</div>
+  <div id="ap-objects-list"></div>
+  <div class="ap-section">Default Lights</div>
+  <div id="ap-default-lights-list"></div>
+  <div id="ap-lights-section" class="ap-section">User Lights</div>
+  <div id="ap-lights-list"></div>
+</div>
+
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/",
+    "jszip": "https://esm.sh/jszip@3.10.1"
+  }
+}
+</script>
+
+<script type="module" src="/static/js/main.js"></script>
+
+</body>
+</html>
