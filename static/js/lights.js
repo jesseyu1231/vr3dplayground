@@ -2,43 +2,62 @@
  * lights.js — default scene lights, user-added lights, and the light properties panel.
  */
 import * as THREE from 'three';
-import { scene, userLights, setSelectedObject, selectedObject, wsSend, genId } from './state.js';
+import { scene, userLights, setSelectedObject, selectedObject, wsSend, genId, myRole } from './state.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo } from './undo.js';
+import { PALETTE, DIM } from './tokens.js';
 
 // ── Default lights ──
-export let ambientLight, dirLight, rimLight, fillLight;
+export let ambientLight, dirLight, rimLight, fillLight, hemisphereLight;
 export let defaultLights = [];
 
 export function initDefaultLights() {
-  ambientLight = new THREE.AmbientLight(0x6677aa, 0.6);
+  // Warm-white floor-fill ambient — white surfaces bounce, recesses don't crush.
+  ambientLight = new THREE.AmbientLight(0xf2efe9, 0.85);
   scene.add(ambientLight);
 
-  dirLight = new THREE.DirectionalLight(0xffeedd, 1.8);
-  dirLight.position.set(5, 8, 4);
+  // The ONE sun / skylight key — the only shadow-casting light in the scene.
+  dirLight = new THREE.DirectionalLight(0xfff4e6, 2.4);
+  dirLight.position.set(6, 12, 4); // MUST equal envPresets[0].dirP
   dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(1024, 1024);
-  dirLight.shadow.camera.near = 0.5;
-  dirLight.shadow.camera.far = 20;
-  dirLight.shadow.camera.left = -6;
-  dirLight.shadow.camera.right = 6;
-  dirLight.shadow.camera.top = 6;
-  dirLight.shadow.camera.bottom = -6;
+  // 1536 on Quest (myRole==='viewer'), 2048 on desktop.
+  const shadowRes = myRole === 'viewer' ? 1536 : 2048;
+  dirLight.shadow.mapSize.set(shadowRes, shadowRes);
+  dirLight.shadow.camera.near = DIM.shadowNear;
+  dirLight.shadow.camera.far = DIM.shadowFar;
+  dirLight.shadow.camera.left = -DIM.shadowOrtho;
+  dirLight.shadow.camera.right = DIM.shadowOrtho;
+  dirLight.shadow.camera.top = DIM.shadowOrtho;
+  dirLight.shadow.camera.bottom = -DIM.shadowOrtho;
+  dirLight.shadow.bias = -0.0005;
+  dirLight.shadow.normalBias = 0.02;
+  dirLight.shadow.radius = 4;
+  dirLight.target.position.set(...DIM.shadowTarget); // covers walkable z (+5..-12)
+  scene.add(dirLight.target);
   scene.add(dirLight);
 
-  rimLight = new THREE.DirectionalLight(0x8888ff, 0.4);
-  rimLight.position.set(-3, 4, -4);
+  // Sky fill — HemisphereLight does 100% of the fill (no env map / scene.environment).
+  hemisphereLight = new THREE.HemisphereLight(0xeef1f4, PALETTE.floor, 0.6);
+  scene.add(hemisphereLight);
+
+  // Track fill — no shadow.
+  rimLight = new THREE.DirectionalLight(0xfcf6ec, 0.55);
+  rimLight.position.set(-5, 7, -3);
+  rimLight.castShadow = false;
   scene.add(rimLight);
 
-  fillLight = new THREE.PointLight(0xffaa66, 0.3, 10);
-  fillLight.position.set(-2, 1, 3);
+  // Moon-gate glow — the only sanctioned default point light, no shadow.
+  fillLight = new THREE.PointLight(0xfff1dc, 0.6, 14, 2);
+  fillLight.position.set(0, 2.6, -12);
+  fillLight.castShadow = false;
   scene.add(fillLight);
 
   defaultLights = [
-    { light: ambientLight, name: 'Ambient',    type: 'ambient' },
-    { light: dirLight,     name: 'Sun (Dir)',  type: 'directional' },
-    { light: rimLight,     name: 'Rim (Dir)',  type: 'directional' },
-    { light: fillLight,    name: 'Fill (Point)', type: 'point' },
+    { light: ambientLight,     name: 'Ambient',         type: 'ambient' },
+    { light: dirLight,         name: 'Sun (Dir)',       type: 'directional' },
+    { light: hemisphereLight,  name: 'Skylight (Hemi)', type: 'hemisphere' },
+    { light: rimLight,         name: 'Rim (Dir)',       type: 'directional' },
+    { light: fillLight,        name: 'Fill (Point)',    type: 'point' },
   ];
 }
 
@@ -95,7 +114,10 @@ lightColorInput.addEventListener('change', sendLightPropUpdate);
 lightIntensityInput.addEventListener('change', sendLightPropUpdate);
 
 document.getElementById('light-delete-btn').addEventListener('click', () => {
-  if (!activeLightInfo) return;
+  // Only user lights own a `handle`. Default lights ({light,name,type}) have none and
+  // must be removed via the Defaults folder — ignore them here, since this path would
+  // otherwise remove them through the wrong bookkeeping and break restore/undo.
+  if (!activeLightInfo || !activeLightInfo.handle) return;
   pushUndo({ type: 'light_delete', info: activeLightInfo });
   scene.remove(activeLightInfo.light);
   if (activeLightInfo.helper) scene.remove(activeLightInfo.helper);
@@ -116,14 +138,7 @@ export function addDirectionalLight(opts = {}) {
     opts.intensity ?? 1.5
   );
   light.position.set(...(opts.position || [3, 5, 3]));
-  light.castShadow = true;
-  light.shadow.mapSize.set(512, 512);
-  light.shadow.camera.near = 0.5;
-  light.shadow.camera.far = 15;
-  light.shadow.camera.left = -5;
-  light.shadow.camera.right = 5;
-  light.shadow.camera.top = 5;
-  light.shadow.camera.bottom = -5;
+  light.castShadow = false; // protect the one-sun shadow budget
   scene.add(light);
   scene.add(light.target);
 
@@ -161,7 +176,7 @@ export function addPointLight(opts = {}) {
     opts.intensity ?? 2, 15
   );
   light.position.set(...(opts.position || [0, 3, 2]));
-  light.castShadow = true;
+  light.castShadow = false; // protect the one-sun shadow budget
   scene.add(light);
 
   const helper = new THREE.PointLightHelper(light, 0.2);

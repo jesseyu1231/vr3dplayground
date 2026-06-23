@@ -7,7 +7,7 @@ import {
   myName, myRole, setMyName, setMyUserId, setWs, wsSend,
 } from './state.js';
 import { addDirectionalLight, addPointLight } from './lights.js';
-import { createPrimitive } from './assets.js';
+import { createPrimitive, createImagePlane } from './assets.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { addMessage, showSpeechBubble } from './chat.js';
 import { applyEnvPreset, envPresets, setEnvIndex } from './environment.js';
@@ -52,7 +52,7 @@ function applyRemoteEnvironment(index = 0) {
   if (!envPresets[index]) return;
   setEnvIndex(index);
   applyEnvPreset(envPresets[index]);
-  document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[index].name;
+  document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[index].name;
 }
 
 function resetRemoteScene({ resetCharacter = true, envIndex = 0 } = {}) {
@@ -160,10 +160,17 @@ function removeRemoteLight(id) {
 function reconstructScene(state, loadGLBFn) {
   if (!state) return;
   for (const obj of Object.values(state.objects)) {
-    loadGLBFn(obj.url, 'synced', {
-      id: obj.id, position: obj.position,
-      quaternion: obj.quaternion, scale: obj.scale, remote: true,
-    });
+    if (obj.image) {
+      createImagePlane(obj.url, obj.name, {
+        id: obj.id, position: obj.position,
+        quaternion: obj.quaternion, scale: obj.scale, remote: true,
+      });
+    } else {
+      loadGLBFn(obj.url, 'synced', {
+        id: obj.id, position: obj.position,
+        quaternion: obj.quaternion, scale: obj.scale, remote: true,
+      });
+    }
   }
   for (const li of Object.values(state.lights)) {
     if (li.type === 'directional') addDirectionalLight({ ...li, remote: true });
@@ -228,6 +235,11 @@ function handleWSMessage(msg, loadGLBFn) {
       if (msg.object) {
         if (msg.object.primitive) {
           createPrimitive(msg.object.primitive, msg.object.color || '#ffffff', {
+            id: msg.object.id, position: msg.object.position,
+            quaternion: msg.object.quaternion, scale: msg.object.scale, remote: true,
+          });
+        } else if (msg.object.image) {
+          createImagePlane(msg.object.url, msg.object.name, {
             id: msg.object.id, position: msg.object.position,
             quaternion: msg.object.quaternion, scale: msg.object.scale, remote: true,
           });

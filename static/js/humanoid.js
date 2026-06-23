@@ -5,84 +5,18 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { scene } from "./state.js";
-
-const skinMat = new THREE.MeshStandardMaterial({
-  color: 0xc4956a,
-  roughness: 0.6,
-  metalness: 0.05,
-});
-const clothMat = new THREE.MeshStandardMaterial({
-  color: 0x3355aa,
-  roughness: 0.7,
-  metalness: 0.05,
-});
-const pantsMat = new THREE.MeshStandardMaterial({
-  color: 0x2a2a44,
-  roughness: 0.8,
-  metalness: 0.05,
-});
-const shoeMat = new THREE.MeshStandardMaterial({
-  color: 0x222222,
-  roughness: 0.9,
-});
-const eyeMat = new THREE.MeshStandardMaterial({
-  color: 0xffffff,
-  roughness: 0.3,
-});
-const pupilMat = new THREE.MeshStandardMaterial({
-  color: 0x222244,
-  roughness: 0.5,
-});
-
-function createLimb(
-  yTop,
-  yMid,
-  yEnd,
-  xOff,
-  upperR,
-  lowerR,
-  upperMat,
-  lowerMat,
-  hasShoe,
-) {
-  const g = new THREE.Group();
-  const upper = new THREE.Mesh(
-    new THREE.CapsuleGeometry(upperR, 0.3, 6, 12),
-    upperMat,
-  );
-  upper.position.set(xOff, yTop, 0);
-  upper.castShadow = true;
-  g.add(upper);
-  const lower = new THREE.Mesh(
-    new THREE.CapsuleGeometry(lowerR, 0.28, 6, 12),
-    lowerMat,
-  );
-  lower.position.set(xOff, yMid, 0);
-  lower.castShadow = true;
-  g.add(lower);
-  if (hasShoe) {
-    const shoe = new THREE.Mesh(
-      new THREE.BoxGeometry(0.13, 0.08, 0.22),
-      shoeMat,
-    );
-    shoe.position.set(xOff, yEnd, 0.03);
-    shoe.castShadow = true;
-    g.add(shoe);
-  } else {
-    const hand = new THREE.Mesh(
-      new THREE.SphereGeometry(0.055, 10, 10),
-      skinMat,
-    );
-    hand.position.set(xOff, yEnd, 0);
-    hand.castShadow = true;
-    g.add(hand);
-  }
-  return g;
-}
+import { PALETTE } from "./tokens.js";
 
 export let humanoid, head;
 let talkTimer = 0;
 let gestureBlend = 0; // 0 = rest, 1 = point pose
+
+// ── Robot-docent module-level handles (captured in createHumanoid) ───────────
+// visorMat: the ONLY animated emissive surface (talk pulse + idle blink).
+// antennaMat / ringMat: cheap separate emissive-jade materials so the antenna
+// tip (0.4×) and hover ring (0.25×) scale independently of the visor pulse.
+// rightArmGroup / leftArmGroup: shoulder-pivot sub-Groups (point gesture).
+let visorMat, antennaMat, ringMat, rightArmGroup, leftArmGroup;
 
 // ── Mixamo replacement ──────────────────────────────────────────────────────
 
@@ -220,6 +154,23 @@ export function clearMixamoModel() {
   if (humanoid) humanoid.visible = true;
 }
 
+// ── Docent (Robot Docent default item) show/hide ────────────────────────────
+// The visible docent is the procedural `humanoid` OR a loaded `mixamoRoot`, so the
+// Defaults-folder delete/restore must toggle BOTH bodies. Restore must NOT touch
+// humanoid.visible — it keeps whatever state setMixamoModel/clearMixamoModel set, so
+// re-adding while a custom character is active leaves the robot hidden and mixamo shown.
+export function deleteDocent() {
+  if (humanoid) humanoid.removeFromParent();
+  if (mixamoRoot) mixamoRoot.removeFromParent();
+}
+export function restoreDocent() {
+  if (humanoid && !humanoid.parent) scene.add(humanoid);
+  if (mixamoRoot && !mixamoRoot.parent) scene.add(mixamoRoot);
+}
+export function isDocentInScene() {
+  return Boolean(humanoid?.parent) || Boolean(mixamoRoot?.parent);
+}
+
 export function hasMixamoModel() {
   return mixamoRoot !== null;
 }
@@ -296,60 +247,184 @@ export function loadMixamoFromUrl(url, name, onSuccess, onError) {
 }
 
 export function createHumanoid() {
+  // ── Sleek low-poly robot docent (§4) ──────────────────────────────────────
+  // "soft porcelain shell + matte bronze joints + single jade visor."
+  // Egg-pod head, wide horizontal glowing jade visor (only emissive face),
+  // tapered torso shell, two 2-segment arms w/ mitten paddle hands (no fingers),
+  // NO legs — a tapered open skirt over a flat hover-disc. Cap ~3,000 tris.
   humanoid = new THREE.Group();
 
-  head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 24), skinMat);
-  head.position.y = 2.12;
+  // Shared shell material for all porcelain shells (head/torso/arms/hands/skirt).
+  // Local instance (cheap, one shader) — NOT a SHARED_MATERIALS reuse because the
+  // robot is the hero piece; keep its look self-contained. Standard for hero PBR.
+  const shellMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.wallWhite,
+    roughness: 0.55,
+    metalness: 0.1,
+  });
+  // Matte bronze for all joints (neck ring, shoulder balls, elbow rings, seam,
+  // visor bezel, antenna stem). Non-emissive, non-shadow detail.
+  const bronzeMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.bronze,
+    roughness: 0.5,
+    metalness: 0.6,
+  });
+
+  // ── Head pod (`head`) ─ porcelain egg, the exported face anchor ────────────
+  head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 14), shellMat);
+  head.scale.set(1, 0.88, 0.82);
+  head.position.y = 1.62; // eye-to-eye greeting height; tip stays below y=2.6
   head.castShadow = true;
   humanoid.add(head);
 
-  const eyeGeo = new THREE.SphereGeometry(0.04, 12, 12);
-  const pupilGeo = new THREE.SphereGeometry(0.02, 10, 10);
-  for (const side of [-1, 1]) {
-    const eye = new THREE.Mesh(eyeGeo, eyeMat);
-    eye.position.set(side * 0.08, 2.14, 0.18);
-    humanoid.add(eye);
-    const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-    pupil.position.set(side * 0.08, 2.14, 0.22);
-    humanoid.add(pupil);
-  }
+  // visorBar — wide horizontal glowing jade bar. OWN material (emissive animates).
+  // FIXED local rotation.z = PI/2 makes the capsule horizontal; never animate it.
+  visorMat = new THREE.MeshStandardMaterial({
+    color: 0x2e5e52,
+    emissive: PALETTE.jade,
+    emissiveIntensity: 0.8,
+    roughness: 0.4,
+    metalness: 0.1,
+  });
+  const visorBar = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.2, 4, 8), visorMat);
+  visorBar.rotation.z = Math.PI / 2;
+  visorBar.position.set(0, 0.0, 0.14);
+  visorBar.castShadow = false;
+  head.add(visorBar);
 
-  const neck = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.06, 0.08, 0.12, 12),
-    skinMat,
-  );
-  neck.position.y = 1.86;
-  neck.castShadow = true;
-  humanoid.add(neck);
+  // visorBezel — flattened bronze ring framing the visor.
+  const visorBezel = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 6, 16), bronzeMat);
+  visorBezel.scale.set(1, 0.5, 0.5);
+  visorBezel.position.set(0, 0.0, 0.135);
+  visorBezel.castShadow = false;
+  head.add(visorBezel);
 
-  const torso = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.22, 0.45, 8, 16),
-    clothMat,
-  );
-  torso.position.y = 1.55;
+  // antenna — bronze stem + emissive-jade tip (own cheap material, scales at 0.4×).
+  antennaMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.jade,
+    emissive: PALETTE.jade,
+    emissiveIntensity: 0.32, // 0.8 × 0.4
+    roughness: 0.5,
+    metalness: 0.0,
+  });
+  const antenna = new THREE.Group();
+  const antennaStem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.18, 6), bronzeMat);
+  antennaStem.position.y = 0.09;
+  antennaStem.castShadow = false;
+  antenna.add(antennaStem);
+  const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), antennaMat);
+  antennaTip.position.y = 0.19;
+  antennaTip.castShadow = false;
+  antenna.add(antennaTip);
+  // Sit antenna on top of the pod (pod is scaled, so offset in head-local space).
+  antenna.position.y = 0.18;
+  head.add(antenna);
+
+  // ── Neck ring (bronze joint, no shadow) ────────────────────────────────────
+  const neckRing = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.08, 16), bronzeMat);
+  neckRing.position.y = 1.46;
+  neckRing.castShadow = false;
+  humanoid.add(neckRing);
+
+  // ── Torso shell ────────────────────────────────────────────────────────────
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.4, 8, 16), shellMat);
+  torso.scale.z = 0.85;
+  torso.position.y = 1.12;
   torso.castShadow = true;
   humanoid.add(torso);
 
-  const hipsBody = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.2, 0.15, 8, 16),
-    pantsMat,
-  );
-  hipsBody.position.y = 1.15;
-  hipsBody.castShadow = true;
-  humanoid.add(hipsBody);
+  // chest seam (bronze detail, no shadow)
+  const chestSeam = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.02), bronzeMat);
+  chestSeam.position.set(0, 1.18, 0.19);
+  chestSeam.castShadow = false;
+  humanoid.add(chestSeam);
 
-  humanoid.add(
-    createLimb(1.65, 1.32, 1.12, -0.32, 0.055, 0.045, clothMat, skinMat, false),
+  // ── Arms — 2-segment sub-Groups pivoting at the shoulder ball ───────────────
+  // Local geometry y is built downward from the shoulder pivot at the group origin.
+  function buildArm(side) {
+    const arm = new THREE.Group();
+    arm.position.set(side * 0.26, 1.34, 0); // shoulder pivot world position
+
+    // shoulder ball (bronze, no shadow)
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), bronzeMat);
+    shoulder.castShadow = false;
+    arm.add(shoulder);
+
+    // upper arm (shell, shadow)
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.2, 4, 8), shellMat);
+    upper.position.y = -0.16;
+    upper.castShadow = true;
+    arm.add(upper);
+
+    // elbow ring (bronze, no shadow)
+    const elbow = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10), bronzeMat);
+    elbow.position.y = -0.3;
+    elbow.castShadow = false;
+    arm.add(elbow);
+
+    // forearm + paddle nested in a sub-group so the elbow channel can rotate
+    // (the procedural point gesture only drives arm.rotation, but keeping the
+    // forearm as a child keeps it visually attached to the elbow pivot).
+    const fore = new THREE.Group();
+    fore.position.y = -0.31;
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.18, 4, 8), shellMat);
+    forearm.position.y = -0.13;
+    forearm.castShadow = true;
+    fore.add(forearm);
+
+    // mitten paddle hand (no fingers)
+    const paddle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.03), shellMat);
+    paddle.position.y = -0.27;
+    paddle.castShadow = true;
+    fore.add(paddle);
+
+    arm.add(fore);
+    arm.userData.fore = fore; // expose elbow channel for the gesture
+    return arm;
+  }
+
+  rightArmGroup = buildArm(1);
+  leftArmGroup = buildArm(-1);
+  humanoid.add(rightArmGroup);
+  humanoid.add(leftArmGroup);
+
+  // ── Tapered open skirt (replaces legs) ──────────────────────────────────────
+  const skirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.21, 0.55, 18, 1, true),
+    shellMat,
   );
-  humanoid.add(
-    createLimb(1.65, 1.32, 1.12, 0.32, 0.055, 0.045, clothMat, skinMat, false),
+  skirt.position.y = 0.62;
+  skirt.castShadow = true;
+  humanoid.add(skirt);
+
+  // ink-black inner occluder so the open skirt doesn't read hollow
+  const skirtInner = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 12, 8),
+    new THREE.MeshLambertMaterial({ color: PALETTE.inkBlack }),
   );
-  humanoid.add(
-    createLimb(0.85, 0.42, 0.04, -0.1, 0.07, 0.055, pantsMat, pantsMat, true),
-  );
-  humanoid.add(
-    createLimb(0.85, 0.42, 0.04, 0.1, 0.07, 0.055, pantsMat, pantsMat, true),
-  );
+  skirtInner.position.y = 0.6;
+  skirtInner.castShadow = false;
+  humanoid.add(skirtInner);
+
+  // ── Hover disc + emissive-jade hover ring (never touch y=0) ─────────────────
+  const hoverDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 18), shellMat);
+  hoverDisc.position.y = 0.15;
+  hoverDisc.castShadow = false;
+  humanoid.add(hoverDisc);
+
+  ringMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.jade,
+    emissive: PALETTE.jade,
+    emissiveIntensity: 0.2, // 0.8 × 0.25
+    roughness: 0.5,
+    metalness: 0.0,
+  });
+  const hoverGlowRing = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 4, 20), ringMat);
+  hoverGlowRing.rotation.x = Math.PI / 2; // lay flat under the disc
+  hoverGlowRing.scale.set(1, 1, 0.5);
+  hoverGlowRing.position.y = 0.13;
+  hoverGlowRing.castShadow = false;
+  humanoid.add(hoverGlowRing);
 
   scene.add(humanoid);
 }
@@ -418,26 +493,67 @@ export function animateHumanoid(t, isTalking) {
     return;
   }
 
-  // ── Procedural path (unchanged) ──────────────────────────────────────────
-  humanoid.position.y = Math.sin(t * 1.5) * 0.008;
-  head.rotation.x = Math.sin(t * 0.8) * 0.03;
-  head.rotation.y = Math.sin(t * 0.5) * 0.05;
+  // ── Procedural robot-docent path (§4) ─────────────────────────────────────
+  // Guard against being called before createHumanoid (and against partial
+  // construction). Idle/talk channel split is the resolved conflict:
+  //   - head.rotation.y / head.rotation.x = idle scan (NOT decayed)
+  //   - head.rotation.z = talk-tilt ONLY (the *=0.95 decayed channel)
+  //   - humanoid.rotation.y = talk-induced body yaw (the *=0.95 decayed channel)
+  if (!humanoid || !head) return;
+
+  // ── Idle (always-on, off t) ──
+  humanoid.position.y = 0.04 + Math.sin(t * 1.1) * 0.025; // hover bob (disc stays > 0)
+  head.rotation.y = Math.sin(t * 0.35) * 0.4;             // slow room scan (safe channel)
+  head.rotation.x = Math.sin(t * 0.6) * 0.05;             // gentle tilt (safe channel)
+
+  // Visor blink: every ~4 s ramp 0.8→0.15→0.8 over ~0.12 s via a sawtooth on t.
+  // Antenna tip follows at 0.4×.
+  let visorBase = 0.8;
+  const blinkPeriod = 4.0;
+  const blinkDur = 0.12;
+  const phase = t % blinkPeriod;
+  if (phase < blinkDur) {
+    // triangle dip: 0.8 → 0.15 at mid-blink → 0.8
+    const k = phase / blinkDur;            // 0..1 across the blink
+    const dip = 1 - Math.abs(k * 2 - 1);   // 0 at edges, 1 at center
+    visorBase = 0.8 - dip * (0.8 - 0.15);
+  }
 
   if (isTalking) {
+    // ── Talking (reuse talkTimer / gestureBlend) ──
     talkTimer += 0.05;
-    head.rotation.x += Math.sin(talkTimer * 3) * 0.04;
-    head.rotation.z = Math.sin(talkTimer * 2.5) * 0.03;
-    humanoid.rotation.y = Math.sin(talkTimer * 1.2) * 0.02;
+    gestureBlend = Math.min(1, gestureBlend + 0.04); // ease in over ~25 frames
+
+    // visor pulse overrides the idle blink while talking
+    if (visorMat) visorMat.emissiveIntensity = 0.8 + Math.sin(talkTimer * 9) * 0.5;
+
+    head.rotation.x += Math.sin(talkTimer * 4) * 0.06;   // nod
+    head.rotation.z = Math.sin(talkTimer * 2.5) * 0.035; // tilt (decayed channel)
+
+    // address the player: ease body yaw toward facing +Z (rotation.y → 0 here,
+    // robot's default forward; eased so the turn reads as a glance, not a snap)
+    humanoid.rotation.y += (0 - humanoid.rotation.y) * 0.08;
   } else {
+    talkTimer = 0;
+    gestureBlend = Math.max(0, gestureBlend - 0.04); // ease out
+    // visor follows the idle blink
+    if (visorMat) visorMat.emissiveIntensity = visorBase;
+    // decay the talk-only channels back to neutral
     humanoid.rotation.y *= 0.95;
     head.rotation.z *= 0.95;
   }
 
-  humanoid.children.forEach((child) => {
-    if (child.isGroup)
-      child.children.forEach((part) => {
-        if (part.position.y > 1 && part.position.y < 1.7)
-          part.rotation.x = Math.sin(t * 0.7 + part.position.x) * 0.02;
-      });
-  });
+  // Antenna tip tracks the visor at 0.4× (independent material, no talk coupling
+  // beyond the shared base level).
+  if (antennaMat && visorMat) antennaMat.emissiveIntensity = visorMat.emissiveIntensity * 0.4;
+
+  // ── Point gesture (reuse gestureBlend 0→1) — right arm only ──
+  // Ease in/out, then scale the target shoulder/elbow rotation by the blend.
+  const e = gestureBlend * gestureBlend * (3 - 2 * gestureBlend); // smoothstep
+  if (rightArmGroup) {
+    rightArmGroup.rotation.x = -1.1 * e;
+    rightArmGroup.rotation.y = -0.3 * e;
+    const fore = rightArmGroup.userData.fore;
+    if (fore) fore.rotation.x = -0.3 * e; // elbow bend
+  }
 }

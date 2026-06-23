@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wending Pavilion · Curator's Studio — User Guide</title>
+<style>
+  :root{
+    --paper:#EDEAE3; --paper2:#F7F4EE; --card:#FBF8F2;
+    --ink:#1F1B16; --muted:#6E665A; --line:#E4DCCB; --line2:#D8D0C0;
+    --cinnabar:#C8442E; --cinnabar-soft:rgba(200,68,46,.10);
+    --gold:#7A6A4F; --green:#3f7d52; --amber:#b07a1d;
+    --serif:'Songti SC','Noto Serif SC','Noto Serif',Georgia,'Times New Roman',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--cinnabar); text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  /* ── Layout ── */
+  .wrap{display:grid; grid-template-columns:260px 1fr; max-width:1180px; margin:0 auto;}
+  nav.toc{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    padding:28px 18px; border-right:1px solid var(--line);
+    background:linear-gradient(180deg,#EFECE4,#E8E4DB);
+  }
+  nav.toc .brand{font-family:var(--serif); font-weight:700; font-size:19px; line-height:1.25;}
+  nav.toc .brand small{display:block; font-family:var(--sans); font-weight:500; font-size:11px; color:var(--muted); letter-spacing:.4px; margin-top:3px;}
+  nav.toc ol{list-style:none; margin:18px 0 0; padding:0; counter-reset:s;}
+  nav.toc li a{display:block; padding:6px 10px; border-radius:7px; color:var(--ink); font-size:13.5px; counter-increment:s;}
+  nav.toc li a::before{content:counter(s) ". "; color:var(--muted);}
+  nav.toc li a:hover{background:var(--cinnabar-soft); text-decoration:none;}
+  main{padding:42px 48px 120px; min-width:0;}
+  @media(max-width:880px){
+    .wrap{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+  }
+
+  /* ── Typography ── */
+  h1{font-family:var(--serif); font-size:38px; line-height:1.12; margin:0 0 6px;}
+  h1 .cn{color:var(--cinnabar); font-weight:700;}
+  .subtitle{color:var(--muted); font-size:16px; margin:0 0 28px;}
+  h2{font-family:var(--serif); font-size:25px; margin:54px 0 14px; padding-bottom:8px; border-bottom:2px solid var(--line); scroll-margin-top:18px;}
+  h2 .n{display:inline-block; min-width:34px; height:34px; line-height:34px; text-align:center; border-radius:50%; background:var(--cinnabar); color:#fff; font-size:15px; font-family:var(--sans); margin-right:10px; vertical-align:2px;}
+  h3{font-size:18px; margin:26px 0 8px; color:#34302a;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:22px;}
+  li{margin:5px 0;}
+  hr{border:none; border-top:1px solid var(--line); margin:30px 0;}
+
+  /* ── Cards / callouts ── */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; margin:18px 0;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr;}}
+
+  .callout{border-radius:12px; padding:14px 16px 14px 46px; margin:16px 0; position:relative; font-size:14.5px; border:1px solid;}
+  .callout::before{position:absolute; left:14px; top:13px; font-size:18px;}
+  .callout.tip{background:#eef5ef; border-color:#cfe3d4; }
+  .callout.tip::before{content:"💡";}
+  .callout.note{background:#eef1f6; border-color:#d3dbe8;}
+  .callout.note::before{content:"ℹ️";}
+  .callout.warn{background:#fbf0ec; border-color:#efcfc6;}
+  .callout.warn::before{content:"⚠️";}
+  .callout b{color:var(--ink);}
+  .cmd{display:block; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; background:#2a2620; color:#f3ede1; border-radius:8px; padding:10px 12px; margin:8px 0 2px; overflow-x:auto; white-space:nowrap; user-select:all; -webkit-user-select:all;}
+
+  /* ── Keys ── */
+  kbd{font-family:var(--sans); font-size:12.5px; background:#fff; border:1px solid var(--line2); border-bottom-width:2px; border-radius:6px; padding:1px 7px; box-shadow:0 1px 0 rgba(0,0,0,.04); white-space:nowrap;}
+
+  /* ── Tables ── */
+  table{width:100%; border-collapse:collapse; margin:16px 0; font-size:14.5px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+  th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line);}
+  th{background:#efe9dd; font-family:var(--serif); font-size:13px;}
+  tr:last-child td{border-bottom:none;}
+  td code{background:#efe9dd; padding:1px 6px; border-radius:5px; font-size:13px;}
+  .chip{display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--line2); border-radius:8px; padding:3px 9px; font-size:13.5px; font-weight:600; white-space:nowrap;}
+
+  /* ── Mock toolbar / buttons ── */
+  .mock{background:#E9E4DA; border:1px solid var(--line); border-radius:14px; padding:16px; margin:18px 0;}
+  .mbtn{display:inline-flex; align-items:center; gap:6px; background:#FBF8F2; border:1px solid var(--line2); border-radius:9px; padding:6px 11px; font-size:13px; font-weight:600; margin:4px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .mbtn.on{background:var(--cinnabar); color:#fff; border-color:var(--cinnabar);}
+
+  /* ── Annotated figure with numbered circles ── */
+  figure{margin:18px 0;}
+  .stage{position:relative; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#DEDAD0;}
+  .pin{position:absolute; width:28px; height:28px; border-radius:50%; background:var(--cinnabar); color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 4px rgba(200,68,46,.25), 0 2px 6px rgba(0,0,0,.3); transform:translate(-50%,-50%);}
+  .ring{position:absolute; border:3px solid var(--cinnabar); border-radius:12px; box-shadow:0 0 0 3px rgba(200,68,46,.18);}
+  figcaption{color:var(--muted); font-size:13px; margin-top:8px; text-align:center;}
+  .legend{counter-reset:l; list-style:none; padding:0; margin:14px 0;}
+  .legend li{counter-increment:l; position:relative; padding:8px 8px 8px 42px; border-bottom:1px dashed var(--line2);}
+  .legend li::before{content:counter(l); position:absolute; left:6px; top:7px; width:24px; height:24px; border-radius:50%; background:var(--cinnabar); color:#fff; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center;}
+  .legend li:last-child{border-bottom:none;}
+  .legend b{font-family:var(--serif);}
+
+  /* ── Screenshot placeholder slot (replace with a real image) ── */
+  .shot img{display:block; width:100%; border:1px solid var(--line); border-radius:14px;}
+  .shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-height:180px; border:2px dashed var(--line2); border-radius:14px; background:repeating-linear-gradient(45deg,#EAE5DB,#EAE5DB 12px,#E5DFD3 12px,#E5DFD3 24px); color:var(--muted); font-size:14px; text-align:center; padding:20px;}
+  .shot .ph .cam{font-size:30px;}
+  .shot .ph code{background:#fff; border:1px solid var(--line2); padding:1px 6px; border-radius:5px; font-size:12.5px;}
+
+  /* mock screen regions */
+  .screen{aspect-ratio:16/9; background:
+     radial-gradient(120% 80% at 50% 18%, #F0EDE6 0%, #E7E2D7 55%, #DAD4C7 100%);
+     position:relative; font-size:11px;}
+  .reg{position:absolute; background:rgba(251,248,242,.92); border:1px solid var(--line2); border-radius:8px; padding:5px 7px; box-shadow:0 2px 6px rgba(0,0,0,.06); color:#48433b;}
+  .reg .t{font-weight:700; font-family:var(--serif);}
+  .floorline{position:absolute; left:8%; right:8%; bottom:24%; height:1px; background:rgba(0,0,0,.12);}
+  .docent{position:absolute; left:48%; bottom:26%; width:26px; height:42px; border-radius:10px 10px 6px 6px; background:linear-gradient(180deg,#cfc8b8,#b7ad99); border:1px solid #a99e88;}
+  .step{display:flex; gap:14px; align-items:flex-start; margin:14px 0;}
+  .step .sn{flex:none; width:30px; height:30px; border-radius:50%; background:var(--ink); color:var(--paper); font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .lead{font-size:18px; color:#3a352e;}
+  footer{margin-top:60px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ───────────────────────── TOC ───────────────────────── -->
+<nav class="toc">
+  <div class="brand">Wending Pavilion
+    <small>Curator's Studio · User Guide</small>
+  </div>
+  <ol>
+    <li><a href="#install">Install &amp; run the app</a></li>
+    <li><a href="#glance">The studio at a glance</a></li>
+    <li><a href="#move">Moving around the scene</a></li>
+    <li><a href="#transform">Select &amp; transform objects</a></li>
+    <li><a href="#add">Adding objects</a></li>
+    <li><a href="#light">Lights &amp; lighting</a></li>
+    <li><a href="#scene-items">Scene Items &amp; the Defaults folder</a></li>
+    <li><a href="#docent">The AI docent &amp; chat</a></li>
+    <li><a href="#save">Save, open &amp; export</a></li>
+    <li><a href="#multi">Working together (multiplayer)</a></li>
+    <li><a href="#vr">VR mode (Meta Quest)</a></li>
+    <li><a href="#dev">Developer tools</a></li>
+    <li><a href="#ref">Keyboard &amp; mouse reference</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<!-- ───────────────────────── CONTENT ───────────────────────── -->
+<main>
+  <h1>Wending Pavilion </h1>
+  <p class="subtitle">Curator's Studio — a desktop &amp; VR studio for curating Chinese-art exhibitions in 3D.</p>
+
+  <p class="lead">This guide walks through every part of the studio: how to launch it, move around, place and arrange artworks, light the room, talk to the AI docent, and present the result in VR. New here? Start with <a href="#install">installing</a>, then read <a href="#glance">the studio at a glance</a>.</p>
+
+  <div class="callout note">Screens in this guide are drawn as labelled diagrams. Where you see a dashed <em>“Add screenshot”</em> box, you can drop your own PNG next to this file (e.g. <code>screenshots/overview.png</code>) and it will appear automatically.</div>
+
+
+  <!-- 1 ── INSTALL ───────────────────────────────────────── -->
+  <h2 id="install"><span class="n">1</span>Install &amp; run the app</h2>
+  <p>The studio ships as a desktop app for <b>macOS (Universal — Intel &amp; Apple Silicon)</b> and <b>Windows (64-bit)</b>. You can also run it in a browser during development with <code>npm start</code>.</p>
+
+  <div class="callout warn">
+    <b>These builds are unsigned.</b> They are <em>not</em> code-signed with an Apple Developer ID or a Windows certificate, so the first time you open the app your operating system will show a security warning. This is expected — the steps below tell your computer to trust it. You only need to do this <b>once</b>.
+  </div>
+
+  <div class="callout warn">
+    <b>macOS — do this first, on every Mac.</b> After copying the app to <b>Applications</b>, open <b>Terminal</b> and run the command below to clear Apple’s quarantine flag. Skip it and macOS will block the unsigned app or call it <em>“damaged and can’t be opened.”</em>
+    <span class="cmd">xattr -dr com.apple.quarantine "/Applications/3D AI Environment.app"</span>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>🍎 macOS (universal .dmg)</h3>
+      <ol>
+        <li>Open <code>3D AI Environment-1.0.0-universal.dmg</code> and drag <b>3D AI Environment</b> into your <b>Applications</b> folder.</li>
+        <li><b>Clear the quarantine flag — required on every Mac.</b> Open <b>Terminal</b> and run:
+          <span class="cmd">xattr -dr com.apple.quarantine "/Applications/3D AI Environment.app"</span></li>
+        <li>Now open the app (double-click). If it’s ever still blocked, <b>right-click → Open → Open</b>, or use <b>System Settings → Privacy &amp; Security → Open Anyway</b>.</li>
+      </ol>
+      <div class="callout tip" style="margin-bottom:0;">The universal build runs <b>natively on both Intel and Apple Silicon</b> Macs — no Rosetta needed.</div>
+    </div>
+
+    <div class="card">
+      <h3>🪟 Windows (.exe installer)</h3>
+      <ol>
+        <li>Run <code>3D AI Environment Setup 1.0.0.exe</code>.</li>
+        <li>Windows <b>SmartScreen</b> may say <em>“Windows protected your PC.”</em> Click <b>More info</b>, then <b>Run anyway</b>.</li>
+        <li>If your antivirus flags the unsigned installer, choose <b>Allow / Keep</b>.</li>
+        <li>Follow the installer — you can pick the install folder and create Desktop / Start-menu shortcuts.</li>
+      </ol>
+      <div class="callout tip" style="margin-bottom:0;">Prefer not to install? Ask for the <b>portable</b> (zipped) build — it runs straight from a folder with no installer.</div>
+    </div>
+  </div>
+
+  <div class="callout note">Want builds <em>without</em> these warnings? That requires paid code-signing certificates (an Apple Developer ID + notarization for macOS, and an Authenticode certificate for Windows). The app and its source are unchanged either way.</div>
+
+
+  <!-- 2 ── AT A GLANCE ───────────────────────────────────── -->
+  <h2 id="glance"><span class="n">2</span>The studio at a glance</h2>
+  <p>When the studio opens you’re standing in a white-cube gallery with a garden beyond the moon-gate and an AI docent in the room. Everything you need sits around the edges of the screen.</p>
+
+
+  <ol class="legend">
+    <li><b>Title &amp; status badge</b> — the room name plus your XR (VR) support status and how many people are connected.</li>
+    <li><b>Toolbar</b> — every creation and editing tool (full reference below).</li>
+    <li><b>Transform modes</b> — switch the gizmo between Move, Rotate and Scale (<kbd>T</kbd>/<kbd>R</kbd>/<kbd>S</kbd>).</li>
+    <li><b>Scene Items panel</b> — a live list of everything in the room, grouped into a <em>Defaults</em> folder, your imported <em>Objects</em>, and <em>User Lights</em>.</li>
+    <li><b>The 3D viewport &amp; docent</b> — click an artwork to select it; drag to look around (see <a href="#move">Moving around</a>).</li>
+    <li><b>Chat panel</b> — talk to the AI docent.</li>
+    <li><b>Shortcuts hint</b> — always-on cheat-sheet for keys and the fly-cam.</li>
+  </ol>
+
+  <h3>Toolbar reference</h3>
+  <table>
+    <tr><th>Button</th><th>What it does</th></tr>
+    <tr><td><span class="chip">📦 Import 3D</span></td><td>Open the <a href="#add">Import</a> window to add a primitive shape (cube, sphere, …) or upload a <code>.glb</code>/<code>.gltf</code> model.</td></tr>
+    <tr><td><span class="chip">💡 Add Spotlight</span></td><td>Add a directional spotlight you can aim and tune.</td></tr>
+    <tr><td><span class="chip">🔆 Add Lamp</span></td><td>Add a point lamp (glows in all directions).</td></tr>
+    <tr><td><span class="chip">🗑️ Delete</span></td><td>Remove the selected item (<kbd>Del</kbd>).</td></tr>
+    <tr><td><span class="chip">⧉ Duplicate</span></td><td>Clone the selected item (<kbd>D</kbd>).</td></tr>
+    <tr><td><span class="chip">☀ Lighting</span></td><td>Cycle the room’s lighting / time-of-day <a href="#light">presets</a>.</td></tr>
+    <tr><td><span class="chip">🧲 Snap</span></td><td>Toggle snap-to-grid for tidy placement (<kbd>G</kbd>).</td></tr>
+    <tr><td><span class="chip">💾 Save Project</span></td><td>Save your whole project to a file to reopen later.</td></tr>
+    <tr><td><span class="chip">📤 Export for Delivery</span></td><td>Export the finished exhibition as a grouped <code>.glb</code> (zipped) for handoff.</td></tr>
+    <tr><td><span class="chip">📂 Open Project</span></td><td>Open a previously saved project file.</td></tr>
+    <tr><td><span class="chip">📋 Scene Items</span></td><td>Show/hide the <a href="#scene-items">Scene Items</a> panel.</td></tr>
+    <tr><td><span class="chip">↩️ Undo</span> / <span class="chip">↪️ Redo</span></td><td>Step backward / forward through your edits (<kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd>).</td></tr>
+    <tr><td><span class="chip">🤖 Change Docent</span></td><td>Replace the AI docent with your own character model. A <span class="chip">↩️ Reset Docent</span> button appears to restore the default.</td></tr>
+    <tr><td><span class="chip">🛠️ Dev Tools</span></td><td>Open the <a href="#dev">developer panel</a> (animation, bones, scene info, FPS).</td></tr>
+    <tr><td><span class="chip">💬 Chat</span></td><td>Show/hide the chat panel.</td></tr>
+    <tr><td><span class="chip">🔑 AI Key</span></td><td>Enter your <a href="#docent">POE API key</a> so the docent can talk.</td></tr>
+    <tr><td><span class="chip">Name</span></td><td>(Top-left) Set the display name others see in multiplayer.</td></tr>
+  </table>
+
+
+  <!-- 3 ── MOVE ──────────────────────────────────────────── -->
+  <h2 id="move"><span class="n">3</span>Moving around the scene</h2>
+  <p>There are two ways to get around: <b>orbit</b> (great for inspecting a single piece) and the <b>fly-cam</b> (great for walking the room like a first-person game).</p>
+
+  <h3>Orbit, pan &amp; zoom (mouse)</h3>
+  <table>
+    <tr><th>Action</th><th>Do this</th></tr>
+    <tr><td>Orbit / look around</td><td><b>Left-drag</b> in the viewport</td></tr>
+    <tr><td>Pan (slide the view)</td><td><b>Middle-drag</b></td></tr>
+    <tr><td>Zoom in / out</td><td><b>Mouse wheel</b></td></tr>
+    <tr><td>Select an object</td><td><b>Left-click</b> it · click empty space to deselect</td></tr>
+  </table>
+
+  <h3>Fly-cam — “walk” the gallery (Unreal-style)</h3>
+  <p>Hold the <b>right mouse button</b> to enter the fly-cam, then steer with the keyboard — exactly like a first-person editor. Release the button to go back to orbiting.</p>
+  <table>
+    <tr><th>While holding <kbd>Right&nbsp;Mouse</kbd></th><th>Result</th></tr>
+    <tr><td>Move the mouse</td><td>Look around (aim)</td></tr>
+    <tr><td><kbd>W</kbd> / <kbd>S</kbd></td><td>Fly forward / backward</td></tr>
+    <tr><td><kbd>A</kbd> / <kbd>D</kbd></td><td>Slide left / right (strafe — stays level)</td></tr>
+    <tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>Drop down / rise up</td></tr>
+    <tr><td><kbd>Mouse&nbsp;Wheel</kbd></td><td>Speed up / slow down the fly speed</td></tr>
+    <tr><td><kbd>Shift</kbd></td><td>Sprint (×4 faster)</td></tr>
+    <tr><td><kbd>Ctrl</kbd> / <kbd>Alt</kbd></td><td>Creep (precise, slow movement)</td></tr>
+  </table>
+  <div class="callout tip">The fly-cam passes straight <b>through walls and objects</b> — no collision — so you can move freely anywhere, even outside into the garden. Your normal editing shortcuts are paused while you hold the right button, so <kbd>S</kbd> won’t switch to Scale mid-flight.</div>
+
+
+  <!-- 4 ── TRANSFORM ─────────────────────────────────────── -->
+  <h2 id="transform"><span class="n">4</span>Select &amp; transform objects</h2>
+  <p>Click any object (or pick it in the <a href="#scene-items">Scene Items</a> panel) to select it. A gizmo appears so you can move, rotate or scale it.</p>
+
+  <figure>
+    <div class="mock" style="text-align:center;">
+      <span class="mbtn on" style="font-size:14px;">Move (T)</span>
+      <span class="mbtn" style="font-size:14px;">Rotate (R)</span>
+      <span class="mbtn" style="font-size:14px;">Scale (S)</span>
+    </div>
+    <figcaption>The transform-mode switch (top-left of the viewport).</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Mode</th><th>Key</th><th>How to use</th></tr>
+    <tr><td>Move</td><td><kbd>T</kbd></td><td>Drag the colored arrows to slide along one axis.</td></tr>
+    <tr><td>Rotate</td><td><kbd>R</kbd></td><td>Drag the rings to spin around an axis.</td></tr>
+    <tr><td>Scale</td><td><kbd>S</kbd></td><td>Drag a handle to resize along that axis.</td></tr>
+  </table>
+
+  <div class="callout tip"><b>Uniform (locked-ratio) scaling:</b> hold <kbd>Shift</kbd> while dragging <em>any</em> scale handle — the object grows or shrinks evenly on all three axes, keeping its proportions, no matter which handle you grab.</div>
+
+  <h3>Other editing actions</h3>
+  <table>
+    <tr><th>Action</th><th>How</th></tr>
+    <tr><td>Delete selected</td><td><span class="chip">🗑️ Delete</span> or <kbd>Del</kbd></td></tr>
+    <tr><td>Duplicate selected</td><td><span class="chip">⧉ Duplicate</span> or <kbd>D</kbd></td></tr>
+    <tr><td>Snap to grid</td><td><span class="chip">🧲 Snap</span> or <kbd>G</kbd> (snaps position, rotation &amp; scale to neat steps)</td></tr>
+    <tr><td>Undo / Redo</td><td><kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd> (<kbd>Ctrl</kbd> on Windows)</td></tr>
+  </table>
+
+
+  <!-- 5 ── ADD ───────────────────────────────────────────── -->
+  <h2 id="add"><span class="n">5</span>Adding objects</h2>
+  <p>Click <span class="chip">📦 Import 3D</span> to open the import window. It has two tabs:</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Primitives</h3>
+      <p>Quick building blocks — pick a shape and a color, then <b>Add to Scene</b>:</p>
+      <p>
+        <span class="chip">■ Cube</span> <span class="chip">● Sphere</span>
+        <span class="chip">▮ Cylinder</span> <span class="chip">▲ Cone</span>
+        <span class="chip">◯ Torus</span>
+      </p>
+      <p>Use the <b>Color</b> swatch to tint the new shape.</p>
+    </div>
+    <div class="card">
+      <h3>Upload a model</h3>
+      <p>Switch to <b>Upload File</b> and choose a <code>.glb</code> or <code>.gltf</code> file (drag-drop or click). It’s added to the room and appears under <b>Objects</b> in the Scene Items panel.</p>
+    </div>
+  </div>
+
+  <figure class="shot">
+    <img src="screenshots/import.png" alt="Import window" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="ph" style="display:none;"><span class="cam">📷</span>Add <code>screenshots/import.png</code> — the Import window (Primitives / Upload tabs)</div>
+  </figure>
+
+  <div class="callout note"><b>Polygon budget:</b> a small badge warns you as the scene’s triangle count approaches the Meta Quest limit, so your exhibition stays smooth in VR.</div>
+
+
+  <!-- 6 ── LIGHTS ────────────────────────────────────────── -->
+  <h2 id="light"><span class="n">6</span>Lights &amp; lighting</h2>
+
+  <h3>Room lighting presets</h3>
+  <p>Click <span class="chip">☀ Lighting</span> to cycle through curated presets (e.g. <em>Gallery Daylight</em>) that change the overall mood and time-of-day in one click.</p>
+
+  <h3>Add your own lights</h3>
+  <ul>
+    <li><span class="chip">💡 Add Spotlight</span> — a directional light you can position and aim.</li>
+    <li><span class="chip">🔆 Add Lamp</span> — a point light that glows in every direction.</li>
+  </ul>
+  <p>Select a light to open the <b>Light Properties</b> panel:</p>
+  <div class="card" style="max-width:340px;">
+    <div style="font-weight:700; margin-bottom:8px;">💡 Light Properties</div>
+    <div style="display:flex; align-items:center; gap:10px; margin:6px 0;"><span style="width:70px;color:var(--muted)">Color</span> <span style="width:26px;height:18px;border-radius:4px;background:#fff;border:1px solid var(--line2);display:inline-block;"></span></div>
+    <div style="display:flex; align-items:center; gap:10px; margin:6px 0;"><span style="width:70px;color:var(--muted)">Intensity</span> <span style="flex:1;height:4px;background:var(--line2);border-radius:2px;display:inline-block;position:relative;"><span style="position:absolute;left:40%;top:-4px;width:12px;height:12px;border-radius:50%;background:var(--cinnabar);"></span></span> <span>1.0</span></div>
+    <div class="mbtn" style="width:100%; justify-content:center; margin-top:8px;">Remove Light</div>
+  </div>
+  <p>Adjust <b>Color</b> and <b>Intensity</b>, or click <b>Remove Light</b> to delete it.</p>
+
+  <div class="callout note">The room’s built-in <em>default lights</em> (Ambient, Sun, Skylight, Rim, Fill) live in the <a href="#scene-items">Defaults folder</a>, where each can be dimmed, removed or restored.</div>
+
+
+  <!-- 7 ── SCENE ITEMS ───────────────────────────────────── -->
+  <h2 id="scene-items"><span class="n">7</span>Scene Items &amp; the Defaults folder</h2>
+  <p>Click <span class="chip">📋 Scene Items</span> to open a live list of everything in the room. It has three parts:</p>
+
+  <figure>
+    <div class="stage" style="max-width:340px; margin:0 auto;">
+      <div style="background:#FBF8F2; padding:12px;">
+        <div style="font-family:var(--serif);font-weight:700;display:flex;justify-content:space-between;"><span>📋 Scene Assets</span><span style="color:var(--muted);font-weight:400;">8 items</span></div>
+        <div style="margin-top:8px; background:rgba(122,106,79,.10); border-radius:7px; padding:6px 8px; font-weight:700; display:flex; gap:6px; align-items:center;">▾ 📁 Defaults <span style="margin-left:auto;color:var(--muted);font-weight:400;">8/8</span> <span style="background:rgba(31,27,22,.07);border-radius:4px;padding:0 6px;">✖</span></div>
+        <div style="margin:4px 0 0 12px; padding-left:8px; border-left:1px solid var(--line);">
+          <div style="padding:4px;">🏛️ Gallery <span style="float:right;color:var(--muted)">🔍 ✖</span></div>
+          <div style="padding:4px;">🌿 Garden <span style="float:right;color:var(--muted)">🔍 ✖</span></div>
+          <div style="padding:4px;">🤖 Robot Docent <span style="float:right;color:var(--muted)">🔍 ✖</span></div>
+          <div style="color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.5px;margin:6px 0 3px;">Lights</div>
+          <div style="padding:4px;">● Sun (Dir) (1.5) <span style="float:right;color:var(--muted)">✖</span></div>
+        </div>
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 3px;">Objects</div>
+        <div style="padding:4px;">📦 Ming Vase <span style="float:right;color:var(--muted)">🔍</span></div>
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 3px;">User Lights</div>
+        <div style="padding:4px;color:var(--muted);font-style:italic;">No user lights</div>
+      </div>
+      <div class="pin" style="left:14%; top:30%;">1</div>
+      <div class="pin" style="left:88%; top:30%;">2</div>
+      <div class="pin" style="left:80%; top:46%;">3</div>
+    </div>
+    <figcaption>The Scene Items panel. Add <code>screenshots/scene-items.png</code> for a real capture.</figcaption>
+  </figure>
+
+  <ol class="legend">
+    <li><b>📁 Defaults folder</b> — the room’s built-in pieces: <b>Gallery</b> (the white-cube architecture), <b>Garden</b> (the literati garden), <b>Robot Docent</b>, and the default <b>Lights</b>. Click the header to collapse/expand it.</li>
+    <li><b>Remove / restore all</b> — the folder’s <b>✖</b> hides every default at once; it turns into <b>➕</b> to bring them all back. The count (e.g. <em>8/8</em>) shows how many are currently in the scene.</li>
+    <li><b>Per-item controls</b> — <b>🔍</b> focuses the camera on that item; <b>✖</b> removes it; a removed item greys out and shows <b>➕</b> to restore it.</li>
+  </ol>
+  <div class="callout tip">Removing a default only <b>hides</b> it — nothing is destroyed, so <b>Restore</b> (or <kbd>⌘Z</kbd>) brings it back exactly as it was. Clicking an item’s name (or 🔍) flies the camera to frame it.</div>
+  <p>Below the folder, <b>Objects</b> lists everything you’ve imported and <b>User Lights</b> lists lights you’ve added — click any row to select it, or 🔍 to focus it.</p>
+
+
+  <!-- 8 ── DOCENT ────────────────────────────────────────── -->
+  <h2 id="docent"><span class="n">8</span>The AI docent &amp; chat</h2>
+  <p>The studio includes an AI docent (the robot in the room) you can talk to about the exhibition.</p>
+
+  <div class="step"><div class="sn">1</div><div><b>Add your AI key.</b> Click <span class="chip">🔑 AI Key</span>, paste your <b>POE API key</b>, optionally set a bot name, and <b>Save</b>. This enables the docent’s replies.</div></div>
+  <div class="step"><div class="sn">2</div><div><b>Open chat.</b> Click <span class="chip">💬 Chat</span> to toggle the chat panel (bottom-right).</div></div>
+  <div class="step"><div class="sn">3</div><div><b>Talk.</b> Type a message and press <b>Send</b> (or <kbd>Enter</kbd>). The docent answers and the speech bubble plays an idle/talking animation.</div></div>
+
+  <h3>Use your own character</h3>
+  <p>Click <span class="chip">🤖 Change Docent</span> to upload your own rigged character (a Mixamo-style <code>.glb</code>). It replaces the default robot. A <span class="chip">↩️ Reset Docent</span> button appears to restore the original.</p>
+  <div class="callout note">Chat replies require a valid POE API key. Without one, you can still type messages, but the docent won’t respond.</div>
+
+
+  <!-- 9 ── SAVE ──────────────────────────────────────────── -->
+  <h2 id="save"><span class="n">9</span>Save, open &amp; export</h2>
+  <table>
+    <tr><th>Button</th><th>Use it to…</th></tr>
+    <tr><td><span class="chip">💾 Save Project</span></td><td>Save the entire scene (objects, lights, layout) to a project file so you can continue later.</td></tr>
+    <tr><td><span class="chip">📂 Open Project</span></td><td>Re-open a saved project file (<code>.zip</code>/<code>.glb</code>).</td></tr>
+    <tr><td><span class="chip">📤 Export for Delivery</span></td><td>Produce a grouped <code>.glb</code> (inside a <code>.zip</code>) of the finished exhibition — for handing off, viewing elsewhere, or archiving.</td></tr>
+  </table>
+  <div class="callout tip"><b>Save Project</b> is your working file (keep editing). <b>Export for Delivery</b> is the polished, shareable output.</div>
+
+
+  <!-- 10 ── MULTIPLAYER ──────────────────────────────────── -->
+  <h2 id="multi"><span class="n">10</span>Working together (multiplayer)</h2>
+  <p>The studio is collaborative — several people can curate the same room at once.</p>
+  <ul>
+    <li>Click <span class="chip">Name</span> (top-left) to set the <b>display name</b> others see.</li>
+    <li>The badge shows how many people are <b>connected</b>.</li>
+    <li>You’ll see other curators’ <b>cursors</b> moving in real time, and changes sync between everyone.</li>
+  </ul>
+
+
+  <!-- 11 ── VR ───────────────────────────────────────────── -->
+  <h2 id="vr"><span class="n">11</span>VR mode (Meta Quest)</h2>
+  <p>On a WebXR headset (e.g. Meta Quest), an <b>Enter VR</b> button appears. The XR status in the top-left badge tells you whether VR is ready.</p>
+
+  <table>
+    <tr><th>In VR</th><th>How</th></tr>
+    <tr><td>Move around</td><td><b>Left thumbstick</b> to glide; <b>right thumbstick</b> to snap-turn.</td></tr>
+    <tr><td>Point &amp; click UI</td><td>The <b>right controller</b> shoots a laser — aim and pull the trigger.</td></tr>
+    <tr><td>Chat panel</td><td>Lives on your <b>left wrist</b> — buttons for <b>Mic</b>, <b>Keys</b> and <b>Send</b>.</td></tr>
+    <tr><td>Talk to type</td><td>Tap <b>Mic</b> and speak — on-device speech-to-text turns it into a message (no internet needed for transcription).</td></tr>
+    <tr><td>Type manually</td><td>Tap <b>Keys</b> for a floating keyboard and point-click letters.</td></tr>
+    <tr><td>Leave VR</td><td>Press <kbd>B</kbd> on the controller (confirm), or use the on-screen <b>Exit VR</b> prompt.</td></tr>
+  </table>
+  <div class="callout note">VR locomotion is collision-free, just like the desktop fly-cam — you can glide anywhere in the gallery and garden.</div>
+  <div class="callout warn">WebXR needs a secure context. On a headset, open the app over <b>https://</b> (or <code>localhost</code>); the badge will tell you if HTTPS is required.</div>
+
+
+  <!-- 12 ── DEV ──────────────────────────────────────────── -->
+  <h2 id="dev"><span class="n">12</span>Developer tools</h2>
+  <p>Click <span class="chip">🛠️ Dev Tools</span> for a panel aimed at tuning and debugging (most curators won’t need this):</p>
+  <ul>
+    <li><b>Character Animation</b> — force the docent to “talk”, trigger a 3-second talk burst, watch the talk timer.</li>
+    <li><b>Bone Tweaks</b> — nudge a selected bone’s idle X/Y/Z rotation, and log the tweaks.</li>
+    <li><b>Mixamo Bones</b> — list the tracked bones / dump all node names of an uploaded character.</li>
+    <li><b>Scene Info</b> — log the scene graph, see the live <b>object count</b> and <b>FPS</b>.</li>
+  </ul>
+
+
+  <!-- 13 ── REFERENCE ────────────────────────────────────── -->
+  <h2 id="ref"><span class="n">13</span>Keyboard &amp; mouse reference</h2>
+  <div class="grid2">
+    <table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td><kbd>T</kbd></td><td>Move mode</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Rotate mode</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Scale mode</td></tr>
+      <tr><td><kbd>Shift</kbd>+drag handle</td><td>Uniform (locked-ratio) scale</td></tr>
+      <tr><td><kbd>G</kbd></td><td>Toggle snap-to-grid</td></tr>
+      <tr><td><kbd>D</kbd></td><td>Duplicate</td></tr>
+      <tr><td><kbd>Del</kbd></td><td>Delete</td></tr>
+      <tr><td><kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd></td><td>Undo / Redo</td></tr>
+    </table>
+    <table>
+      <tr><th>Mouse</th><th>Action</th></tr>
+      <tr><td>Left-drag</td><td>Orbit / look</td></tr>
+      <tr><td>Middle-drag</td><td>Pan</td></tr>
+      <tr><td>Wheel</td><td>Zoom (fly-cam: speed)</td></tr>
+      <tr><td>Left-click</td><td>Select / deselect</td></tr>
+      <tr><td><b>Right-hold</b> + <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Fly-cam move</td></tr>
+      <tr><td>Right-hold + <kbd>Q</kbd>/<kbd>E</kbd></td><td>Fly down / up</td></tr>
+      <tr><td>Right-hold + <kbd>Shift</kbd></td><td>Sprint</td></tr>
+      <tr><td>Right-hold + <kbd>Ctrl</kbd></td><td>Creep</td></tr>
+    </table>
+  </div>
+
+
+  <!-- 14 ── TROUBLE ──────────────────────────────────────── -->
+  <h2 id="trouble"><span class="n">14</span>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td>macOS: “app can’t be opened / unidentified developer”</td><td>Right-click → <b>Open</b>, or Privacy &amp; Security → <b>Open Anyway</b>. See <a href="#install">Install</a>.</td></tr>
+    <tr><td>macOS: “app is damaged”</td><td>Run <code>xattr -dr com.apple.quarantine "/Applications/3D AI Environment.app"</code>.</td></tr>
+    <tr><td>Windows: “Windows protected your PC”</td><td>Click <b>More info → Run anyway</b> (unsigned build).</td></tr>
+    <tr><td>Fly-cam strafes feel like rotating</td><td>You may be on an older build — install the latest package, or hard-reload in dev (DevTools → Disable cache → reload).</td></tr>
+    <tr><td>Docent won’t reply in chat</td><td>Add a valid <b>POE API key</b> via <span class="chip">🔑 AI Key</span>.</td></tr>
+    <tr><td>Warning badge about triangles</td><td>You’re near the Quest polygon budget — simplify or remove heavy models.</td></tr>
+    <tr><td>VR button missing on headset</td><td>Open over <b>https://</b>; check the XR status in the top-left badge.</td></tr>
+  </table>
+
+</main>
+</div>
+</body>
+</html>

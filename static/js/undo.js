@@ -4,6 +4,7 @@
 import { scene, importedObjects, userLights, selectedObject, userContentGroup } from './state.js';
 import { applyEnvPreset, envPresets, envIndex, setEnvIndex } from './environment.js';
 import { refreshAssetPanel } from './assetpanel.js';
+import { deleteDocent, restoreDocent } from './humanoid.js';
 
 const undoStack = [];
 const redoStack = [];
@@ -150,11 +151,47 @@ function applyAction(action, isRedo) {
       else scene.remove(action.dl.light);
       break;
     }
+    case 'default_item': {
+      // action.items: default scene items toggled; action.removed: true if this action
+      // removed them (so undo re-adds; redo re-removes). Scene-remove only, never disposed.
+      const doRemove = action.removed ? isRedo : !isRedo;
+      for (const it of action.items) {
+        if (doRemove) {
+          if (it.kind === 'docent') deleteDocent(); else it.object.removeFromParent();
+          if (selectedObject === it.object) document.dispatchEvent(new CustomEvent('deselect-all'));
+        } else {
+          if (it.kind === 'docent') restoreDocent(); else it.parent.add(it.object);
+        }
+      }
+      break;
+    }
+    case 'default_bulk': {
+      // Folder "delete/restore all": default items + the default lights inside the folder.
+      const doRemove = action.removed ? isRedo : !isRedo;
+      for (const it of action.items) {
+        if (doRemove) {
+          if (it.kind === 'docent') deleteDocent(); else it.object.removeFromParent();
+          if (selectedObject === it.object) document.dispatchEvent(new CustomEvent('deselect-all'));
+        } else {
+          if (it.kind === 'docent') restoreDocent(); else it.parent.add(it.object);
+        }
+      }
+      for (const L of action.lights) {
+        if (doRemove) {
+          scene.remove(L.dl.light);
+        } else {
+          scene.add(L.dl.light);
+          L.dl.light.color.set(L.color);
+          L.dl.light.intensity = L.intensity;
+        }
+      }
+      break;
+    }
     case 'env_change': {
       const target = isRedo ? action.newIndex : action.oldIndex;
       setEnvIndex(target);
       applyEnvPreset(envPresets[target]);
-      document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[target].name;
+      document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[target].name;
       break;
     }
   }

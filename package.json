@@ -1,13 +1,13 @@
 {
   "name": "vr3dplayground-desktop",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "3D AI Environment — Desktop Builder",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "build:mac": "electron-builder --mac --arm64 --x64",
-    "build:win": "electron-builder --win --x64",
-    "build:all": "electron-builder --mac --arm64 --x64 && electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --mac --win",
     "build": "npm run build:all"
   },
   "devDependencies": {
@@ -41,7 +41,7 @@
     "mac": {
       "category": "public.app-category.graphics-design",
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] }
+        { "target": "dmg", "arch": ["universal"] }
       ],
       "identity": null
     },

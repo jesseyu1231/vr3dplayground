@@ -4,26 +4,28 @@
 import * as THREE from 'three';
 
 // ── State (must be first — other modules import from it) ──
-import { scene, camera, renderer, selectedObject, myName, wsSend } from './state.js';
+import { scene, camera, renderer, selectedObject, myName, wsSend, galleryGroup, defaultItems, genId } from './state.js';
 
 // ── Scene setup ──
 import { initScene } from './scene.js';
-import { createHumanoid, animateHumanoid, clearMixamoModel, getMixamoSourceFile, loadMixamoFromFile, loadMixamoFromBuffer } from './humanoid.js';
+import { initGallery } from './gallery.js';
+import { initGarden, updateGarden } from './garden.js';
+import { createHumanoid, animateHumanoid, clearMixamoModel, getMixamoSourceFile, loadMixamoFromFile, loadMixamoFromBuffer, humanoid } from './humanoid.js';
 
 // ── Lights ──
-import { initDefaultLights, initLightButtons, ambientLight, dirLight, addDirectionalLight, addPointLight } from './lights.js';
+import { initDefaultLights, initLightButtons, ambientLight, dirLight, hemisphereLight, addDirectionalLight, addPointLight } from './lights.js';
 
 // ── Environment presets ──
 import { initEnvButton, registerDefaultLightsForEnv, envIndex, envPresets, applyEnvPreset, setEnvIndex } from './environment.js';
 
 // ── Controls ──
-import { orbitControls, tControls, selectObject, deselectAll, initKeyboard } from './controls.js';
+import { orbitControls, tControls, selectObject, deselectAll, initKeyboard, updateFlyControls } from './controls.js';
 
 // ── Undo/Redo ──
 import { initUndoButtons } from './undo.js';
 
 // ── Assets ──
-import { loadGLB, initFileImport, initSceneExportImport, deleteSelected, duplicateSelected } from './assets.js';
+import { loadGLB, initFileImport, initSceneExportImport, deleteSelected, duplicateSelected, buildZipFileMap } from './assets.js';
 import { importedObjects, userLights } from './state.js';
 
 // ── Asset Panel ──
@@ -47,10 +49,30 @@ import { initVRExperience, updateVRExperience } from './vr.js';
 const clock = new THREE.Clock();
 
 initScene();
+initGallery();   // white-cube hall: master floor, walls, moon-gate, plinths, vitrines
+const gardenGroup = initGarden();  // literati garden beyond the moon-gate (z < -12)
 createHumanoid();
 
+// ── Register the default scene items so they appear (and are deletable) in the
+// "Defaults" folder of the Scene Items panel. Garden is lifted out of galleryGroup so
+// Gallery and Garden are independent, separately-deletable items (both groups are at
+// identity, so reparenting to scene preserves their world placement). ──
+scene.add(gardenGroup);
+function registerDefaultItem(name, icon, object, kind) {
+  if (!object) return;
+  object.userData.displayName = name;
+  if (!object.userData.id) object.userData.id = genId();
+  defaultItems.push({ id: object.userData.id, name, icon, object, parent: object.parent, kind });
+}
+registerDefaultItem('Gallery',      '\u{1F3DB}️', galleryGroup);            // 🏛️
+registerDefaultItem('Garden',       '\u{1F33F}',        gardenGroup);            // 🌿
+registerDefaultItem('Robot Docent', '\u{1F916}',        humanoid, 'docent');     // 🤖
+
 initDefaultLights();
-registerDefaultLightsForEnv(ambientLight, dirLight);
+registerDefaultLightsForEnv(ambientLight, dirLight, hemisphereLight);
+// Boot in Gallery Daylight: single-source exposure/hemi/dir through the preset.
+// preset[0] is value-identical to initDefaultLights, so there's zero visual jump.
+applyEnvPreset(envPresets[envIndex]);
 
 initUndoButtons();
 initLightButtons();
@@ -77,26 +99,21 @@ document.getElementById('export-glb-btn').addEventListener('click', async () => 
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
 
-    const urlToFilename = {};
-    for (const obj of importedObjects) {
-      const url = obj.userData.url || '';
-      if (url && !urlToFilename[url]) {
-        urlToFilename[url] = obj.userData.displayName || url.split('/').pop() || 'model.glb';
-      }
-    }
-    await Promise.all(Object.entries(urlToFilename).map(async ([url, filename]) => {
+    const urlToFile = buildZipFileMap(importedObjects);
+    await Promise.all(Object.entries(urlToFile).map(async ([url, zipPath]) => {
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        zip.file('objects/' + filename, await res.arrayBuffer());
+        zip.file(zipPath, await res.arrayBuffer());
       } catch (e) {
-        console.warn('[Export GLB] skipping', filename, e.message);
+        console.warn('[Export GLB] skipping', zipPath, e.message);
       }
     }));
 
     const objects = importedObjects.map(obj => ({
-      file:       urlToFilename[obj.userData.url || ''] ? 'objects/' + urlToFilename[obj.userData.url || ''] : '',
+      file:       urlToFile[obj.userData.url || ''] || '',
       name:       obj.userData.displayName || '',
+      image:      obj.userData.isImage || undefined,
       position:   obj.position.toArray(),
       quaternion: obj.quaternion.toArray(),
       scale:      obj.scale.toArray(),
@@ -394,9 +411,15 @@ renderer.setAnimationLoop(() => {
   const t = clock.elapsedTime;
 
   animateHumanoid(t, isTalking);
+  updateGarden(t);
 
   if (!renderer.xr.isPresenting) {
-    orbitControls.update();
+    updateFlyControls(delta);
+    // OrbitControls.update() ignores the `enabled` flag in three r163 (enabled only
+    // gates its input listeners), so calling it every frame would run lookAt(target)
+    // on top of the flycam — clobbering mouse-look and snapping the camera back toward
+    // the stale orbit pivot. Skip it whenever OrbitControls is off (flycam or gizmo drag).
+    if (orbitControls.enabled) orbitControls.update();
   }
   updateSpeechBubbleFrame();
   updateVRExperience(delta);

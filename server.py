@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {".glb"}
+ALLOWED_EXTENSIONS = {".glb", ".jpg", ".jpeg", ".png", ".webp"}
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
 CONFIG_PATH = BASE_DIR / "config.local.json"

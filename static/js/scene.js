@@ -17,22 +17,17 @@ export function drawSkyGradient(stops) {
 }
 
 export function initScene() {
-  drawSkyGradient([[0,'#1a1a3e'],[0.4,'#2d2d6e'],[0.7,'#4a4a8a'],[1,'#7a7ab0']]);
-  scene.fog = new THREE.FogExp2(0x2d2d6e, 0.02);
+  // Warm ink-wash overcast sky shared by gallery + garden. Matches env preset[0]
+  // ('Gallery Daylight') so there's no flash of the old dark sky before the boot
+  // applyEnvPreset() runs in main.js.
+  drawSkyGradient([[0,'#E8E4DB'],[0.55,'#EDEAE3'],[1,'#DCD7CC']]);
 
-  const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(20, 64),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a5c, roughness: 0.85, metalness: 0.1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
+  // Keep a LIVE FogExp2 at near-zero density. applyEnvPreset() unconditionally
+  // writes scene.fog.color / scene.fog.density, so this must never be null.
+  scene.fog = new THREE.FogExp2(0xEDEAE3, 0.0008);
 
-  const grid = new THREE.GridHelper(40, 50, 0x555577, 0x444466);
-  grid.position.y = 0.005;
-  grid.material.transparent = true;
-  grid.material.opacity = 0.3;
-  scene.add(grid);
-
+  // No ground / grid here: gallery.js lays the single master walkable y=0 plane
+  // (indoor + garden) and garden.js overlays the green ground. Keeping the
+  // renderer canvas attach — it is load-bearing.
   document.getElementById('canvas-container').appendChild(renderer.domElement);
 }

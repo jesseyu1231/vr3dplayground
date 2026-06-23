@@ -32,9 +32,23 @@ export const userContentGroup = new THREE.Group();
 userContentGroup.name = 'UserContent';
 scene.add(userContentGroup);
 
+// ── Gallery decor group (structural exhibition geometry — NEVER user art) ──
+// All gallery + garden meshes live here so they're auto-excluded from the asset
+// panel, select/delete/clone, Final Delivery Export, and the poly HUD (each of
+// which traverses only importedObjects / userLights). Non-selectable by design.
+export const galleryGroup = new THREE.Group();
+galleryGroup.name = 'GalleryDecor';
+galleryGroup.userData.selectable = false;
+scene.add(galleryGroup);
+
 // ── Object/light collections ──
 export const importedObjects = [];
 export const userLights = []; // { light, helper, handle, type, id }
+
+// ── Default scene items (gallery / garden / docent) — listed in the "Defaults"
+// folder of the Scene Items panel; deletable + restorable (scene-remove only, never
+// disposed). { id, name, icon, object, parent } ──
+export const defaultItems = [];
 
 // ── Selection ──
 export let selectedObject = null;

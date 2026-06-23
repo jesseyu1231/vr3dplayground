@@ -25,6 +25,35 @@ const gltfLoader = new GLTFLoader();
 gltfLoader.setDRACOLoader(dracoLoader);
 gltfLoader.setKTX2Loader(ktx2Loader);
 
+// ── Image (JPG/PNG) import support ──
+const textureLoader = new THREE.TextureLoader();
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp']);
+export function isImageExt(ext) { return IMAGE_EXTS.has(String(ext || '').toLowerCase()); }
+
+// Map each unique object URL → a unique path inside an export zip. De-dupes by URL (the
+// same file is stored once) and disambiguates colliding display names (e.g. two distinct
+// "image.jpg" uploads) by suffixing -2, -3, … so no file is silently overwritten/lost.
+export function buildZipFileMap(objs) {
+  const urlToFile = {};
+  const used = new Set();
+  for (const obj of objs) {
+    const url = obj.userData.url || '';
+    if (!url || urlToFile[url]) continue;
+    let base = obj.userData.displayName || url.split('/').pop() || (obj.userData.isImage ? 'image.jpg' : 'model.glb');
+    if (used.has(base)) {
+      const dot  = base.lastIndexOf('.');
+      const stem = dot > 0 ? base.slice(0, dot) : base;
+      const ext  = dot > 0 ? base.slice(dot) : '';
+      let i = 2;
+      while (used.has(`${stem}-${i}${ext}`)) i++;
+      base = `${stem}-${i}${ext}`;
+    }
+    used.add(base);
+    urlToFile[url] = 'objects/' + base;
+  }
+  return urlToFile;
+}
+
 // ── Normalize model size + placement ──
 export function normalizeAndPlace(object, pos) {
   object.updateMatrixWorld(true);
@@ -78,6 +107,87 @@ export function loadGLB(url, filename, opts = {}) {
     console.error('GLTFLoader error:', err);
     addMessage('Failed to load model: ' + (err.message || 'unknown error'), 'system');
   });
+}
+
+// ── Import a JPG/PNG as an upright image plane (original aspect, ratio-locked) ──
+// Creates a flat vertical quad textured with the picture. The plane keeps the image's
+// native aspect ratio (longest side normalised to ~2 m: portraits stay tall, landscapes
+// stay wide) and is tagged userData.lockAspect so resizing always preserves that ratio
+// (see controls.js). MeshBasicMaterial + toneMapped:false shows the art true-to-source
+// and always legible regardless of where it's placed; double-sided so it reads from behind.
+// Build the textured upright plane mesh — shared by direct import and grouped scene load.
+// PlaneGeometry sits in the XY plane facing +Z, so it's already upright. Keeps the image's
+// native aspect (longest side ~2 m) and is tagged lockAspect so resizing preserves the ratio.
+function makeImagePlaneMesh(texture) {
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const iw = texture.image?.width  || 1;
+  const ih = texture.image?.height || 1;
+  const aspect = iw / ih;
+  const TARGET = 2.0;                                  // longest side, metres
+  const w = aspect >= 1 ? TARGET : TARGET * aspect;
+  const h = aspect >= 1 ? TARGET / aspect : TARGET;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, toneMapped: false })
+  );
+  mesh.castShadow = true;
+  mesh.userData.isImage = true;
+  mesh.userData.lockAspect = true;   // transform keeps the picture's ratio (no Shift needed)
+  return mesh;
+}
+
+export function createImagePlane(url, filename, opts = {}) {
+  textureLoader.load(url, (texture) => {
+    const mesh = makeImagePlaneMesh(texture);
+    const id = opts.id || genId();
+    mesh.userData.id = id;
+    mesh.userData.url = url;
+    mesh.userData.displayName = filename || url.split('/').pop() || 'Image';
+
+    if (opts.position && opts.quaternion && opts.scale) {
+      mesh.position.fromArray(opts.position);
+      mesh.quaternion.fromArray(opts.quaternion);
+      mesh.scale.fromArray(opts.scale);
+    } else {
+      mesh.position.set(1.2, 1.5, 0);   // eye-level, like a hung picture
+    }
+
+    userContentGroup.add(mesh);
+    importedObjects.push(mesh);
+
+    if (!opts.remote) {
+      pushUndo({ type: 'object_add', obj: mesh });
+      document.dispatchEvent(new CustomEvent('select-object', { detail: mesh }));
+      wsSend({ type: 'object_add', object: {
+        id, url, image: true, name: mesh.userData.displayName,
+        position: mesh.position.toArray(),
+        quaternion: mesh.quaternion.toArray(),
+        scale: mesh.scale.toArray(),
+      }});
+    }
+    refreshAssetPanel();
+  },
+  undefined,
+  (err) => {
+    console.error('TextureLoader error:', err);
+    addMessage('Failed to load image: ' + (err?.message || 'unknown error'), 'system');
+  });
+}
+
+// Upload an image file to the server (so the URL works cross-device, incl. Quest), then
+// place it. Mirrors the .glb upload path used by the modal/legacy file inputs.
+async function importImageFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res  = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (res.ok) createImagePlane(data.url, data.name);
+    else addMessage(data.error || 'Image upload failed', 'system');
+  } catch (err) {
+    addMessage('Image upload error: ' + err.message, 'system');
+  }
 }
 
 // ── Create primitive shape ──
@@ -138,8 +248,11 @@ export function initFileImport() {
   const primitiveColor = document.getElementById('primitive-color');
   const modalFileInput = document.getElementById('modal-file-input');
   const modalUploadArea = document.getElementById('modal-upload-area');
+  const modalImageInput = document.getElementById('modal-image-input');
+  const modalImageArea = document.getElementById('modal-image-area');
   const modalCancel = document.getElementById('modal-cancel');
   const modalAdd = document.getElementById('modal-add');
+  const allTabPanels = document.querySelectorAll('#import-modal .tab-panel');
 
   let selectedPrimitive = 'cube';
 
@@ -152,25 +265,21 @@ export function initFileImport() {
     primitiveColor.value = '#ffffff';
     modalTabs.forEach(t => t.classList.remove('active'));
     modalTabs[0].classList.add('active');
+    allTabPanels.forEach(p => p.classList.add('hidden'));
     tabPrimitives.classList.remove('hidden');
-    tabUpload.classList.add('hidden');
   });
 
   modalCancel.addEventListener('click', () => importModal.classList.add('hidden'));
   importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.classList.add('hidden'); });
 
-  // Tab switching
+  // Tab switching — show the panel whose id is `tab-<data-tab>`, hide the rest.
   modalTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       modalTabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      if (tab.dataset.tab === 'primitives') {
-        tabPrimitives.classList.remove('hidden');
-        tabUpload.classList.add('hidden');
-      } else {
-        tabPrimitives.classList.add('hidden');
-        tabUpload.classList.remove('hidden');
-      }
+      allTabPanels.forEach(p => p.classList.add('hidden'));
+      const panel = document.getElementById('tab-' + tab.dataset.tab);
+      if (panel) panel.classList.remove('hidden');
     });
   });
 
@@ -192,12 +301,30 @@ export function initFileImport() {
     }
   });
 
+  // Image tab — pick a JPG/PNG, import immediately as an upright ratio-locked plane.
+  modalImageArea.addEventListener('click', () => modalImageInput.click());
+  modalImageInput.addEventListener('change', async () => {
+    const file = modalImageInput.files[0];
+    if (!file) return;
+    modalImageInput.value = '';
+    importModal.classList.add('hidden');
+    await importImageFile(file);
+  });
+
   // Upload area
   modalUploadArea.addEventListener('click', () => modalFileInput.click());
   modalFileInput.addEventListener('change', async () => {
     const file = modalFileInput.files[0];
     if (!file) return;
     const ext = file.name.split('.').pop().toLowerCase();
+
+    // An image dropped in the 3D-upload tab still works — route it to the image path.
+    if (isImageExt(ext)) {
+      modalFileInput.value = '';
+      importModal.classList.add('hidden');
+      await importImageFile(file);
+      return;
+    }
 
     if (ext === 'gltf') {
       const url = URL.createObjectURL(file);
@@ -241,6 +368,8 @@ export function initFileImport() {
     const file = fileInput.files[0];
     if (!file) return;
     const ext = file.name.split('.').pop().toLowerCase();
+
+    if (isImageExt(ext)) { fileInput.value = ''; await importImageFile(file); return; }
 
     if (ext === 'gltf') {
       const url = URL.createObjectURL(file);
@@ -341,6 +470,8 @@ export function duplicateSelected(selectedObject) {
   document.dispatchEvent(new CustomEvent('select-object', { detail: clone }));
   wsSend({ type: 'object_add', object: {
     id, url: selectedObject.userData.url || '',
+    image: selectedObject.userData.isImage || undefined,
+    name: selectedObject.userData.isImage ? selectedObject.userData.displayName : undefined,
     position: clone.position.toArray(),
     quaternion: clone.quaternion.toArray(),
     scale: clone.scale.toArray(),
@@ -379,26 +510,21 @@ export function initSceneExportImport({
       const zip = new JSZip();
 
       // ── Objects ──
-      const urlToFilename = {};
-      for (const obj of importedObjects) {
-        const url = obj.userData.url || '';
-        if (url && !urlToFilename[url]) {
-          urlToFilename[url] = obj.userData.displayName || url.split('/').pop() || 'model.glb';
-        }
-      }
+      const urlToFile = buildZipFileMap(importedObjects);
       const fetchErrors = [];
-      await Promise.all(Object.entries(urlToFilename).map(async ([url, filename]) => {
+      await Promise.all(Object.entries(urlToFile).map(async ([url, zipPath]) => {
         try {
           const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          zip.file('objects/' + filename, await res.arrayBuffer());
+          zip.file(zipPath, await res.arrayBuffer());
         } catch (err) {
-          fetchErrors.push(`${filename}: ${err.message}`);
+          fetchErrors.push(`${zipPath}: ${err.message}`);
         }
       }));
       const objects = importedObjects.map(obj => ({
-        file:       urlToFilename[obj.userData.url || ''] ? 'objects/' + urlToFilename[obj.userData.url || ''] : '',
+        file:       urlToFile[obj.userData.url || ''] || '',
         name:       obj.userData.displayName || '',
+        image:      obj.userData.isImage || undefined,   // dropped from JSON when not an image
         position:   obj.position.toArray(),
         quaternion: obj.quaternion.toArray(),
         scale:      obj.scale.toArray(),
@@ -488,7 +614,7 @@ export function initSceneExportImport({
         if (envPresets && envPresets[nextEnvIndex]) {
           setEnvIndex && setEnvIndex(nextEnvIndex);
           applyEnvPreset && applyEnvPreset(envPresets[nextEnvIndex]);
-          document.getElementById('env-btn').textContent = '\ud83c\udf05 ' + envPresets[nextEnvIndex].name;
+          document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[nextEnvIndex].name;
         }
 
         // ── Character ──
@@ -566,7 +692,28 @@ export function initSceneExportImport({
           for (const entry of objects) {
             const objUrl = fileURLs[entry.file];
             if (!objUrl) continue;
+            const isImg = entry.image || isImageExt((entry.file || entry.name || '').split('.').pop());
             await new Promise((resolve) => {
+              if (isImg) {
+                textureLoader.load(objUrl, (texture) => {
+                  const mesh = makeImagePlaneMesh(texture);
+                  mesh.position.fromArray(entry.position);
+                  mesh.quaternion.fromArray(entry.quaternion);
+                  mesh.scale.fromArray(entry.scale);
+                  const modelId = genId();
+                  mesh.userData.id = modelId;
+                  mesh.userData.url = objUrl;
+                  mesh.userData.displayName = entry.name || 'Image';
+                  groupRoot.add(mesh);
+                  loaded++;
+                  wsSend({ type: 'object_add', object: {
+                    id: modelId, url: objUrl, image: true, name: entry.name,
+                    position: entry.position, quaternion: entry.quaternion, scale: entry.scale,
+                  }});
+                  resolve();
+                }, undefined, resolve);
+                return;
+              }
               gltfLoader.load(objUrl, (gltf) => {
                 const model = gltf.scene;
                 if (!model) { resolve(); return; }
@@ -619,11 +766,14 @@ export function initSceneExportImport({
           for (const entry of objects) {
             const objUrl = fileURLs[entry.file];
             if (!objUrl) { addMessage(`Skipped "${entry.name || entry.file}" — file not found in zip`, 'system'); continue; }
-            loadGLB(objUrl, entry.name, {
-              position:   entry.position,
-              quaternion: entry.quaternion,
-              scale:      entry.scale,
-            });
+            const place = { position: entry.position, quaternion: entry.quaternion, scale: entry.scale };
+            // Detect images by the flag OR the file extension, so zips saved before the
+            // image flag existed still restore as pictures instead of failing as glTF.
+            if (entry.image || isImageExt((entry.file || entry.name || '').split('.').pop())) {
+              createImagePlane(objUrl, entry.name, place);
+            } else {
+              loadGLB(objUrl, entry.name, place);
+            }
             loaded++;
           }
           addMessage(`Loaded from ${file.name}: ${loaded} object(s), ${lights.length} light(s)${characterFile ? ', character' : ''}`, 'system');

@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three';
 import { camera, chatHistory3D, wsSend, myName } from './state.js';
+import { head } from './humanoid.js';
 
 // ── DOM refs ──
 const chatOutput   = document.getElementById('chat-output');
@@ -17,7 +18,15 @@ const bubbleWorldPos = new THREE.Vector3();
 
 function updateSpeechBubblePosition() {
   if (speechBubble.style.display === 'none' || speechBubble.style.display === '') return;
-  bubbleWorldPos.set(0, 2.6, 0).project(camera);
+  // Track the docent's head (robot head sits ~1.62m; Mixamo swaps vary) instead of
+  // a hardcoded world point, so the bubble always sits just above whoever is talking.
+  if (head) {
+    head.getWorldPosition(bubbleWorldPos);
+    bubbleWorldPos.y += 0.5;
+  } else {
+    bubbleWorldPos.set(0, 2.1, 0);
+  }
+  bubbleWorldPos.project(camera);
   const x = (bubbleWorldPos.x * 0.5 + 0.5) * innerWidth;
   const y = (-bubbleWorldPos.y * 0.5 + 0.5) * innerHeight;
   speechBubble.style.left = x + 'px';
