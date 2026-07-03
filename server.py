@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {".glb", ".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_EXTENSIONS = {".glb", ".jpg", ".jpeg", ".png", ".webp", ".hdr", ".exr"}
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
 CONFIG_PATH = BASE_DIR / "config.local.json"
@@ -44,12 +44,12 @@ def _load_local_config() -> dict:
 
 
 def _save_local_config(api_key: str, bot_name: str) -> None:
-    """Persist the API key and bot name so they survive server restarts."""
+    """Persist the API key and bot name so they survive server restarts.
+    Merges into any existing config so other keys (e.g. tripoApiKey) are preserved."""
+    data = _load_local_config()
+    data.update({"poeApiKey": api_key, "poeBotName": bot_name})
     try:
-        CONFIG_PATH.write_text(json.dumps(
-            {"poeApiKey": api_key, "poeBotName": bot_name},
-            indent=2,
-        ))
+        CONFIG_PATH.write_text(json.dumps(data, indent=2))
     except OSError as e:
         print(f"[config] Failed to write {CONFIG_PATH.name}: {e}")
 
@@ -57,6 +57,13 @@ def _save_local_config(api_key: str, bot_name: str) -> None:
 _cfg = _load_local_config()
 POE_API_KEY = _cfg.get("poeApiKey") or os.getenv("POE_API_KEY", "")
 BOT_NAME = _cfg.get("poeBotName") or os.getenv("POE_BOT_NAME", "ai_ministerbot")
+
+# ── Tripo AI (text/image → 3D) ───────────────────────────────────────────────
+# config.local.json's tripoApiKey takes priority over the env var / default in tripo.py.
+import tripo  # noqa: E402
+if _cfg.get("tripoApiKey"):
+    tripo.set_api_key(_cfg["tripoApiKey"])
+app.include_router(tripo.router)
 
 # ── Multiplayer ──────────────────────────────────────────
 CURSOR_COLORS = [
@@ -73,6 +80,7 @@ class ConnectionManager:
             "objects": {},
             "lights": {},
             "envIndex": 0,
+            "world": None,
             "character": None,
         }
         self._color_idx = 0
@@ -159,6 +167,7 @@ class ConnectionManager:
                 "objects": {},
                 "lights": {},
                 "envIndex": data.get("envIndex", 0),
+                "world": data.get("world"),
                 "character": None,
             }
             await self.broadcast({**data, "userId": user_id}, exclude=user_id)
@@ -204,6 +213,12 @@ class ConnectionManager:
 
         elif msg_type == "env_change":
             self.scene_state["envIndex"] = data.get("envIndex", 0)
+            self.scene_state["world"] = {
+                "templateId": data.get("templateId"),
+                "moodId": data.get("moodId"),
+                "skybox": data.get("skybox"),
+                "envIndex": data.get("envIndex", 0),
+            }
             await self.broadcast({**data, "userId": user_id}, exclude=user_id)
 
         elif msg_type == "character_set":

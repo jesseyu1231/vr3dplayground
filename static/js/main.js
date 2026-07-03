@@ -15,8 +15,9 @@ import { createHumanoid, animateHumanoid, clearMixamoModel, getMixamoSourceFile,
 // ── Lights ──
 import { initDefaultLights, initLightButtons, ambientLight, dirLight, hemisphereLight, addDirectionalLight, addPointLight } from './lights.js';
 
-// ── Environment presets ──
-import { initEnvButton, registerDefaultLightsForEnv, envIndex, envPresets, applyEnvPreset, setEnvIndex } from './environment.js';
+// ── Environment presets + world templates ──
+import { registerDefaultLightsForEnv, envIndex, envPresets, applyEnvPreset, setEnvIndex } from './environment.js';
+import { applyTemplate, registerTemplateTargets, initWorldPanel, buildTemplateTiles } from './templates.js';
 
 // ── Controls ──
 import { orbitControls, tControls, selectObject, deselectAll, initKeyboard, updateFlyControls } from './controls.js';
@@ -31,6 +32,12 @@ import { importedObjects, userLights } from './state.js';
 // ── Asset Panel ──
 import { initAssetPanel, assetPanel } from './assetpanel.js';
 
+// ── Tripo AI (text/image → 3D) ──
+import { initTripoUI } from './tripo.js';
+
+// ── Line icons (emoji-free UI) ──
+import { ICON } from './icons.js';
+
 // ── Chat ──
 import { initChat, isTalking, updateSpeechBubbleFrame, addMessage, sendMessage } from './chat.js';
 
@@ -41,6 +48,9 @@ import { connectWS, lerpRemoteCursors, sendCursorUpdate, updateMyDisplayName } f
 
 // ── Dev Panel ──
 import { initDevPanel, updateDevPanel } from './devpanel.js';
+
+// ── Shell (panels / drawers) ──
+import { togglePanel, openPanel, closePanel } from './ui.js';
 
 // ── VR ──
 import { initVRExperience, updateVRExperience } from './vr.js';
@@ -64,21 +74,23 @@ function registerDefaultItem(name, icon, object, kind) {
   if (!object.userData.id) object.userData.id = genId();
   defaultItems.push({ id: object.userData.id, name, icon, object, parent: object.parent, kind });
 }
-registerDefaultItem('Gallery',      '\u{1F3DB}️', galleryGroup);            // 🏛️
-registerDefaultItem('Garden',       '\u{1F33F}',        gardenGroup);            // 🌿
-registerDefaultItem('Robot Docent', '\u{1F916}',        humanoid, 'docent');     // 🤖
+registerDefaultItem('Gallery',      ICON.gallery(), galleryGroup);
+registerDefaultItem('Garden',       ICON.garden(),  gardenGroup);
+registerDefaultItem('Guide', ICON.robot(),   humanoid, 'docent');
 
 initDefaultLights();
 registerDefaultLightsForEnv(ambientLight, dirLight, hemisphereLight);
-// Boot in Gallery Daylight: single-source exposure/hemi/dir through the preset.
-// preset[0] is value-identical to initDefaultLights, so there's zero visual jump.
-applyEnvPreset(envPresets[envIndex]);
+// Boot in the Gallery template (Daylight mood). Geometry + lights + sky all flow through
+// the single applyTemplate path. remote/push false → no broadcast, no undo entry on boot.
+registerTemplateTargets({ gardenGroup });
+applyTemplate('gallery', { mood: 'day', remote: true, push: false });
 
 initUndoButtons();
 initLightButtons();
-initEnvButton();
+initWorldPanel();
 initAssetPanel();
 initFileImport();
+initTripoUI();   // "AI Generate" tab + toolbar button (text/image -> 3D via Tripo)
 initSceneExportImport({
   addDirectionalLight, addPointLight,
   getEnvIndex:        () => envIndex,
@@ -142,6 +154,35 @@ document.getElementById('export-glb-btn').addEventListener('click', async () => 
 initKeyboard(doDelete, doDuplicate);
 
 initDevPanel();
+
+// ── Shell wiring: World drawer, Help, and dock active-state sync ──
+const DOCK_FOR_PANEL = { inspector: 'asset-panel-btn', 'world-panel': 'world-btn' };
+function syncDockActive(panelId, on) {
+  const btnId = DOCK_FOR_PANEL[panelId];
+  if (btnId) document.getElementById(btnId)?.classList.toggle('active', on);
+}
+document.addEventListener('panel-open',  (e) => syncDockActive(e.detail, true));
+document.addEventListener('panel-close', (e) => syncDockActive(e.detail, false));
+
+document.getElementById('world-btn').addEventListener('click', () => togglePanel('world-panel'));
+
+// ── Onboarding (first-run welcome) ──
+const ONBOARD_KEY = 'diorama_onboarded_v1';
+const onbDismiss = document.getElementById('onboarding-dismiss');
+function closeOnboarding() {
+  if (onbDismiss?.checked) localStorage.setItem(ONBOARD_KEY, '1');
+  closePanel('onboarding');
+}
+buildTemplateTiles(document.getElementById('onboarding-templates'), (id) => {
+  applyTemplate(id);
+  closeOnboarding();
+});
+document.getElementById('onboarding-start').addEventListener('click', closeOnboarding);
+document.getElementById('help-btn').addEventListener('click', () => {
+  if (onbDismiss) onbDismiss.checked = false;   // reopened on demand → don't silently re-suppress
+  openPanel('onboarding');
+});
+if (!localStorage.getItem(ONBOARD_KEY)) openPanel('onboarding');
 
 const xrStatus = document.getElementById('xr-status');
 const localhostHosts = new Set(['localhost', '127.0.0.1']);
@@ -338,15 +379,15 @@ function updatePolyWarning() {
   if (ratio >= QUEST_DANGER_RATIO) {
     polyWarning.style.display = 'block';
     polyWarning.className = 'poly-warn poly-danger';
-    polyWarning.textContent = `\u26a0\ufe0f ${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget) — OVER BUDGET, expect frame drops on Quest`;
+    polyWarning.textContent = `${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget) — OVER BUDGET, expect frame drops on Quest`;
   } else if (ratio >= QUEST_WARN_RATIO) {
     polyWarning.style.display = 'block';
     polyWarning.className = 'poly-warn poly-caution';
-    polyWarning.textContent = `\u26a0\ufe0f ${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget) — approaching limit`;
+    polyWarning.textContent = `${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget) — approaching limit`;
   } else if (tris > 0) {
     polyWarning.style.display = 'block';
     polyWarning.className = 'poly-warn poly-ok';
-    polyWarning.textContent = `\u25b2 ${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget)`;
+    polyWarning.textContent = `${tris.toLocaleString()} triangles (${pct}% of Quest 3S budget)`;
   } else {
     polyWarning.style.display = 'none';
   }

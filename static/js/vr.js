@@ -3,7 +3,7 @@
  *
  * Left controller carries a wrist-mounted chat panel (Mic / Keys / Send).
  * Right controller emits a laser used to click panel buttons and keys.
- * Speech-to-text runs fully on-device via Whisper (transformers.js, WASM).
+ * Speech-to-text is captured in the headset and transcribed server-side via /api/stt (faster-whisper).
  */
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
@@ -589,6 +589,11 @@ export function initVRExperience({ orbitControls, tControls, setXRStatus, refres
     refreshChatHistoryOnPanel(true);
     setupHandUI();
     setXRStatus('XR: VR active. Left wrist = chat; right trigger = click.', 'xr-ready');
+    // One-shot in-headset orientation hint on the wrist panel.
+    if (!localStorage.getItem('diorama_vr_hint_v1')) {
+      wristPanel.setStatus('Left wrist = chat · right trigger = click · thumbstick to move');
+      localStorage.setItem('diorama_vr_hint_v1', '1');
+    }
   });
 
   renderer.xr.addEventListener('sessionend', () => {

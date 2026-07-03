@@ -2,10 +2,7 @@
  * environment.js — sky/fog/light environment presets.
  */
 import { scene, renderer } from './state.js';
-import { drawSkyGradient } from './scene.js';
-import { pushUndo } from './undo.js';
-import { wsSend } from './state.js';
-import { PALETTE } from './tokens.js';
+import { drawSkyGradient, drawStarrySky } from './scene.js';
 
 // All 4 presets keep the identical shape (load-bearing indices for multiplayer/undo/
 // saved-scene restore). hemiSky/hemiGround/hemiI exist on ALL 4 (no undefined → .setHex
@@ -17,10 +14,23 @@ export const envPresets = [
   { name: 'Warm Gallery',        sky:[[0,'#EAE5DA'],[0.55,'#EDEAE3'],[1,'#E0D9CA']], fog:0xEDE7DA, fogD:0.0008, ambC:0xf3ece0, ambI:0.8,  dirC:0xfff0d8, dirI:2.3, dirP:[5,11,4], exp:1.0,  hemiSky:0xf0ece2, hemiGround:0xDCCEB8, hemiI:0.55 },
   { name: 'Golden Hour Garden',  sky:[[0,'#EFE6D2'],[0.55,'#EDEAE3'],[1,'#E2D6BE']], fog:0xEEE6D6, fogD:0.002,  ambC:0xf4ecdc, ambI:0.78, dirC:0xffe6b8, dirI:2.5, dirP:[8,7,5],  exp:1.05, hemiSky:0xf2e8d2, hemiGround:0xCDB78E, hemiI:0.5  },
   { name: 'Evening',             sky:[[0,'#DED7C8'],[0.55,'#E5DECF'],[1,'#CFC6B4']], fog:0xE6DFCE, fogD:0.004,  ambC:0xece4d6, ambI:0.6,  dirC:0xf2dcc0, dirI:1.6, dirP:[3,8,3],  exp:0.85, hemiSky:0xe4ddcc, hemiGround:0xC4BAA6, hemiI:0.45 },
+  // Wrap-around night sky (see drawStarrySky). `starry` swaps the flat gradient for the
+  // equirectangular star dome; `sky` is kept as a dark fallback so the preset shape stays
+  // identical. Cool moonlight + low ambient so art reads without washing the stars out.
+  { name: 'Starry Night', starry:true, sky:[[0,'#05060f'],[0.7,'#0b1026'],[1,'#1a2140']], fog:0x0b1026, fogD:0.0022, ambC:0x2a3354, ambI:0.55, dirC:0xaebfff, dirI:0.9, dirP:[4,12,3], exp:1.15, hemiSky:0x1a2342, hemiGround:0x0a0e1c, hemiI:0.4 },
 ];
 
 export let envIndex = 0;
 export function setEnvIndex(i) { envIndex = i; }
+
+// Lighting "moods" re-scope the existing presets (template-independent): day/sunset/
+// evening map to preset indices; Starry Night owns its own lighting (index 4). The
+// preset array + applyEnvPreset are kept exactly as-is to preserve the load-bearing
+// key-shape invariant — templates only ever hand an existing preset to applyEnvPreset.
+export const MOODS      = { day: 0, sunset: 2, evening: 3 };
+export const MOOD_ORDER = ['day', 'sunset', 'evening'];
+export const MOOD_LABEL = { day: 'Daylight', sunset: 'Sunset', evening: 'Evening' };
+export const STARRY_INDEX = 4;
 
 // References to the default scene lights — set by main.js after init
 let _ambientLight, _dirLight, _hemiLight;
@@ -31,7 +41,7 @@ export function registerDefaultLightsForEnv(ambient, dir, hemi) {
 }
 
 export function applyEnvPreset(p) {
-  drawSkyGradient(p.sky);
+  if (p.starry) drawStarrySky(); else drawSkyGradient(p.sky);
   scene.fog.color.setHex(p.fog);
   scene.fog.density = p.fogD;
   if (_ambientLight) { _ambientLight.color.setHex(p.ambC); _ambientLight.intensity = p.ambI; }
@@ -40,13 +50,5 @@ export function applyEnvPreset(p) {
   renderer.toneMappingExposure = p.exp;
 }
 
-export function initEnvButton() {
-  document.getElementById('env-btn').addEventListener('click', () => {
-    const oldIndex = envIndex;
-    envIndex = (envIndex + 1) % envPresets.length;
-    applyEnvPreset(envPresets[envIndex]);
-    document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[envIndex].name;
-    pushUndo({ type: 'env_change', oldIndex, newIndex: envIndex });
-    wsSend({ type: 'env_change', envIndex });
-  });
-}
+// The mood toggle + template/skybox UI that used to cycle these presets now lives in
+// templates.js (initWorldPanel), which drives everything through applyTemplate().

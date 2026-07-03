@@ -11,6 +11,7 @@ import { scene, renderer, importedObjects, userLights, userContentGroup, genId, 
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo } from './undo.js';
 import { addMessage } from './chat.js';
+import { getWorldDescriptor, applyWorldDescriptor, worldFromLegacyEnvIndex } from './templates.js';
 
 // ── DRACO compressed mesh support ──
 const dracoLoader = new DRACOLoader();
@@ -90,6 +91,7 @@ export function loadGLB(url, filename, opts = {}) {
     } else {
       normalizeAndPlace(model, new THREE.Vector3(1.2, 0, 0));
     }
+    if (opts.hidden) model.visible = false;
     userContentGroup.add(model);
     importedObjects.push(model);
     if (!opts.remote) {
@@ -106,6 +108,44 @@ export function loadGLB(url, filename, opts = {}) {
   (err) => {
     console.error('GLTFLoader error:', err);
     addMessage('Failed to load model: ' + (err.message || 'unknown error'), 'system');
+  });
+}
+
+// ── Swap a textured GLB onto an existing object IN PLACE (progressive AI generation) ──
+// Used for "show the draft mesh now, upgrade it to textured when ready". Keeps the SAME
+// object instance, so its id, transform, selection and undo entry are all preserved — only
+// the child meshes are replaced (grey draft → textured). Tripo's texture_model returns the
+// identical geometry, so there's no shape pop. No-ops if the object was deleted meanwhile,
+// and preserves any move/scale the user made while it was texturing.
+export function replaceObjectGlbById(id, url, filename) {
+  const target = importedObjects.find(o => o.userData.id === id);
+  if (!target) return;   // user deleted the draft while it textured — respect that
+  gltfLoader.load(url, (gltf) => {
+    const src = gltf.scene;
+    if (!src || !importedObjects.includes(target)) return;   // re-check: still in scene?
+    // Drop the draft meshes and free their GPU resources.
+    for (const child of [...target.children]) { target.remove(child); disposeObject(child); }
+    // Graft the textured meshes in, baking the loaded root transform onto each child so a
+    // non-identity GLB root can't offset them relative to the (already-placed) target.
+    src.updateMatrixWorld(true);
+    for (const child of [...src.children]) {
+      child.applyMatrix4(src.matrix);
+      child.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      target.add(child);
+    }
+    target.userData.url = url;
+    if (filename) target.userData.displayName = filename;
+    // Peers (incl. Quest viewers) loaded the draft by URL — re-point them at the textured one.
+    wsSend({ type: 'object_delete', id });
+    wsSend({ type: 'object_add', object: {
+      id, url,
+      position: target.position.toArray(),
+      quaternion: target.quaternion.toArray(),
+      scale: target.scale.toArray(),
+    }});
+    refreshAssetPanel();
+  }, undefined, (err) => {
+    addMessage('Texture upgrade failed to load: ' + (err?.message || 'unknown error'), 'system');
   });
 }
 
@@ -152,6 +192,7 @@ export function createImagePlane(url, filename, opts = {}) {
     } else {
       mesh.position.set(1.2, 1.5, 0);   // eye-level, like a hung picture
     }
+    if (opts.hidden) mesh.visible = false;
 
     userContentGroup.add(mesh);
     importedObjects.push(mesh);
@@ -525,6 +566,7 @@ export function initSceneExportImport({
         file:       urlToFile[obj.userData.url || ''] || '',
         name:       obj.userData.displayName || '',
         image:      obj.userData.isImage || undefined,   // dropped from JSON when not an image
+        hidden:     obj.visible ? undefined : true,      // dropped from JSON when visible
         position:   obj.position.toArray(),
         quaternion: obj.quaternion.toArray(),
         scale:      obj.scale.toArray(),
@@ -551,10 +593,12 @@ export function initSceneExportImport({
         console.log('[Export] no character file stored — skipping');
       }
 
-      // ── Environment ──
+      // ── Environment ── world descriptor (template + mood + skybox) plus the legacy
+      // integer index so older builds can still open this file.
       const environmentIndex = getEnvIndex ? getEnvIndex() : 0;
+      const world = getWorldDescriptor();
 
-      zip.file('scene.json', JSON.stringify({ objects, lights, characterFile, environmentIndex }, null, 2));
+      zip.file('scene.json', JSON.stringify({ objects, lights, characterFile, environmentIndex, world }, null, 2));
 
       const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
       downloadBlob(blob, 'scene.zip');
@@ -592,8 +636,10 @@ export function initSceneExportImport({
         const characterFile   = Array.isArray(manifest) ? '' : (manifest.characterFile || '');
         const environmentIndex = Array.isArray(manifest) ? null : (manifest.environmentIndex ?? null);
         const nextEnvIndex = environmentIndex !== null ? environmentIndex : (getEnvIndex ? getEnvIndex() : 0);
+        // Prefer the full world descriptor; fall back to mapping the legacy integer index.
+        const world = (!Array.isArray(manifest) && manifest.world) ? manifest.world : worldFromLegacyEnvIndex(nextEnvIndex);
 
-        wsSend({ type: 'scene_reset', envIndex: nextEnvIndex });
+        wsSend({ type: 'scene_reset', envIndex: world.envIndex, world });
 
         // ── Clear existing scene ──
         document.dispatchEvent(new CustomEvent('deselect-all'));
@@ -610,12 +656,8 @@ export function initSceneExportImport({
         userLights.length = 0;
         refreshAssetPanel();
 
-        // ── Environment ──
-        if (envPresets && envPresets[nextEnvIndex]) {
-          setEnvIndex && setEnvIndex(nextEnvIndex);
-          applyEnvPreset && applyEnvPreset(envPresets[nextEnvIndex]);
-          document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[nextEnvIndex].name;
-        }
+        // ── Environment / world (template + mood + skybox) ──
+        applyWorldDescriptor(world, { remote: true, push: false });
 
         // ── Character ──
         if (characterFile && loadMixamoFromBuffer && clearMixamoModel) {
@@ -704,6 +746,7 @@ export function initSceneExportImport({
                   mesh.userData.id = modelId;
                   mesh.userData.url = objUrl;
                   mesh.userData.displayName = entry.name || 'Image';
+                  if (entry.hidden) mesh.visible = false;
                   groupRoot.add(mesh);
                   loaded++;
                   wsSend({ type: 'object_add', object: {
@@ -721,6 +764,7 @@ export function initSceneExportImport({
                 model.quaternion.fromArray(entry.quaternion);
                 model.scale.fromArray(entry.scale);
                 model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+                if (entry.hidden) model.visible = false;
                 groupRoot.add(model);
                 loaded++;
                 // Broadcast each model individually so remote viewers (e.g. Quest) can load them
@@ -766,7 +810,7 @@ export function initSceneExportImport({
           for (const entry of objects) {
             const objUrl = fileURLs[entry.file];
             if (!objUrl) { addMessage(`Skipped "${entry.name || entry.file}" — file not found in zip`, 'system'); continue; }
-            const place = { position: entry.position, quaternion: entry.quaternion, scale: entry.scale };
+            const place = { position: entry.position, quaternion: entry.quaternion, scale: entry.scale, hidden: entry.hidden };
             // Detect images by the flag OR the file extension, so zips saved before the
             // image flag existed still restore as pictures instead of failing as glTF.
             if (entry.image || isImageExt((entry.file || entry.name || '').split('.').pop())) {

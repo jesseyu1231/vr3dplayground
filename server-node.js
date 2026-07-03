@@ -24,7 +24,7 @@ const UPLOAD_DIR = isPackaged
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const ALLOWED_EXT    = new Set(['.glb', '.jpg', '.jpeg', '.png', '.webp']);
+const ALLOWED_EXT    = new Set(['.glb', '.jpg', '.jpeg', '.png', '.webp', '.hdr', '.exr']);
 const MAX_UPLOAD_MB  = 100;
 const CURSOR_COLORS  = [
   '#ff4444', '#44ff44', '#4488ff', '#ff44ff',
@@ -190,6 +190,10 @@ app.post('/api/upload', (req, res) => {
     });
   });
 });
+
+// Tripo AI (text/image → 3D) — mirrors the Python server's /api/tripo/* routes so
+// the desktop Builder can generate models. Saves finished glb into UPLOAD_DIR.
+require('./tripo-node').mountTripo(app, { uploadDir: UPLOAD_DIR });
 
 // Chat endpoint — disabled in desktop build
 app.post('/api/chat', (req, res) => {

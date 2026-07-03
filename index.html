@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Wending Pavilion · Curator's Studio</title>
+<title>Diorama — 3D scene studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
@@ -11,141 +14,315 @@
 <div id="canvas-container"></div>
 <div id="speech-bubble"></div>
 
-<!-- Desktop Mode Badge -->
-<div id="mode-badge">
-  <span class="badge-title">Wending Pavilion <span class="badge-cn">文徵阁</span></span><span class="badge-tag">Curator's Studio · 策展工作室</span>
-  <small id="xr-status">XR: checking support...</small>
-  <small id="connected-count"></small>
-</div>
+<!-- ── Top bar: identity + session ──────────────────────────────────────── -->
+<header id="app-topbar" class="desktop-ui">
+  <div id="brand">
+    <span id="brand-mark">Diorama</span>
+    <span id="brand-tag">3D scene studio</span>
+  </div>
+  <div id="session-cluster">
+    <span id="presence" title="People connected to this scene">
+      <span id="presence-dot"></span>
+      <small id="connected-count"></small>
+    </span>
+    <small id="xr-status">XR: checking support…</small>
+    <button class="chip-btn" id="name-toggle-btn" type="button">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>
+      <span>Name</span>
+    </button>
+    <button class="chip-btn" id="help-btn" type="button" title="Show the welcome guide">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 2.2-2.6 4"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
 
-<button class="toolbar-btn" id="name-toggle-btn" type="button">Name</button>
-<button class="toolbar-btn" id="exit-vr-btn" type="button">Exit VR</button>
+<button class="chip-btn" id="exit-vr-btn" type="button">Exit VR</button>
 
 <div id="vr-exit-prompt" class="hidden">
-  <div id="vr-exit-title">Exit VR?</div>
+  <div id="vr-exit-title">Leave VR?</div>
   <div id="vr-exit-copy">Press B again to leave VR, or choose an option below.</div>
   <div id="vr-exit-actions">
-    <button class="toolbar-btn" id="vr-exit-confirm-btn" type="button">Exit VR</button>
-    <button class="toolbar-btn" id="vr-exit-cancel-btn" type="button">Stay</button>
+    <button class="chip-btn" id="vr-exit-confirm-btn" type="button">Leave VR</button>
+    <button class="chip-btn" id="vr-exit-cancel-btn" type="button">Stay</button>
   </div>
 </div>
 
 <div id="name-panel" class="hidden">
-  <div id="name-panel-title">Player Name</div>
+  <div id="name-panel-title">Your name</div>
   <div id="name-panel-row">
     <input id="display-name-input" type="text" maxlength="20" placeholder="Set your display name" autocomplete="nickname" />
-    <button id="display-name-save-btn">Update</button>
+    <button id="display-name-save-btn">Save</button>
   </div>
 </div>
 
-<!-- Desktop Toolbar -->
-<div id="toolbar">
-  <button class="toolbar-btn" id="import-btn" title="Add a 3D model or shape to the scene">&#x1f4e6; Import 3D</button>
-  <button class="toolbar-btn" id="add-dir-light-btn" title="Add a directional spotlight">&#x1f4a1; Add Spotlight</button>
-  <button class="toolbar-btn" id="add-point-light-btn" title="Add a point lamp">&#x1f506; Add Lamp</button>
-  <button class="toolbar-btn" id="delete-btn" title="Delete the selected item">&#x1f5d1;&#xfe0f; Delete</button>
-  <button class="toolbar-btn" id="duplicate-btn" title="Duplicate the selected item">&#x29c9; Duplicate</button>
-  <button class="toolbar-btn" id="env-btn" title="Cycle the scene lighting / time of day">&#x2600; Lighting</button>
-  <button class="toolbar-btn" id="snap-btn" title="Toggle snap-to-grid">&#x1f9f2; Snap</button>
-  <button class="toolbar-btn" id="export-btn" title="Save your project to a file so you can reopen it later">&#x1f4be; Save Project</button>
-  <button class="toolbar-btn" id="export-glb-btn" title="Export the finished exhibition for delivery (grouped .glb)">&#x1f4e4; Export for Delivery</button>
-  <button class="toolbar-btn" id="import-scene-btn" title="Open a previously saved project">&#x1f4c2; Open Project</button>
-  <button class="toolbar-btn" id="asset-panel-btn" title="Show the list of items in the scene">&#x1f4cb; Scene Items</button>
-  <button class="toolbar-btn" id="undo-btn" title="Undo (⌘Z)">&#x21a9;&#xfe0f; Undo</button>
-  <button class="toolbar-btn" id="redo-btn" title="Redo (⇧⌘Z)">&#x21aa;&#xfe0f; Redo</button>
-  <button class="toolbar-btn" id="character-btn" title="Replace the AI docent with your own character model">&#x1f916; Change Docent</button>
-  <button class="toolbar-btn" id="character-reset-btn" style="display:none" title="Restore the default docent">&#x21a9;&#xfe0f; Reset Docent</button>
-  <button class="toolbar-btn" id="dev-btn" title="Developer tools">&#x1f6e0;&#xfe0f; Dev Tools</button>
-  <button class="toolbar-btn" id="chat-toggle-btn" title="Show / hide the chat with the AI docent">&#x1f4ac; Chat</button>
-  <button class="toolbar-btn" id="api-key-btn" title="Enter the AI (POE) API key for the docent">&#x1f511; AI Key</button>
+<!-- ── Bottom dock: primary tools, grouped ──────────────────────────────── -->
+<nav id="dock" class="desktop-ui" aria-label="Tools">
+  <div class="dock-group" data-group="create">
+    <button class="dock-btn" id="import-btn" title="Add a shape, model, or image to the scene">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M12 8.5v7M8.5 12h7"/></svg>
+      <span>Add</span>
+    </button>
+    <button class="dock-btn" id="tripo-btn" title="Generate a 3D model from a description or image (AI)">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 4.8 4.8 1.7-4.8 1.7L12 16l-1.7-4.8L5.5 9.5l4.8-1.7z"/><path d="M18.5 15.5l.6 1.7 1.7.6-1.7.6-.6 1.7-.6-1.7-1.7-.6 1.7-.6z"/></svg>
+      <span>Generate</span>
+    </button>
+    <div class="dock-flyout" id="light-flyout">
+      <button class="dock-btn" id="light-flyout-btn" title="Add a light" aria-haspopup="true" aria-expanded="false">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.7 10.7c.5.4.7.9.7 1.5v.3h6v-.3c0-.6.2-1.1.7-1.5A6 6 0 0 0 12 3z"/></svg>
+        <span>Light</span>
+      </button>
+      <div class="flyout-menu" role="menu">
+        <button class="flyout-item" id="add-dir-light-btn" type="button">Spotlight</button>
+        <button class="flyout-item" id="add-point-light-btn" type="button">Point light</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock-divider"></div>
+
+  <div class="dock-group" data-group="world">
+    <button class="dock-btn" id="world-btn" title="Templates, skybox & lighting mood">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-7 4 5 3-3.5L21 17z"/><circle cx="8" cy="7.5" r="1.6"/><rect x="3" y="4" width="18" height="16" rx="2.5"/></svg>
+      <span>World</span>
+    </button>
+    <button class="dock-btn" id="asset-panel-btn" title="Inspect everything in the scene">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+      <span>Scene</span>
+    </button>
+  </div>
+
+  <div class="dock-divider"></div>
+
+  <div class="dock-group" data-group="project">
+    <button class="dock-btn" id="undo-btn" title="Undo (⌘Z)">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-1"/></svg>
+      <span>Undo</span>
+    </button>
+    <button class="dock-btn" id="redo-btn" title="Redo (⇧⌘Z)">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7l5 5-5 5"/><path d="M20 12H9a5 5 0 0 0 0 10h1"/></svg>
+      <span>Redo</span>
+    </button>
+    <button class="dock-btn jade" id="export-btn" title="Save your project so you can reopen it later">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 14h8v7H8z"/></svg>
+      <span>Save</span>
+    </button>
+    <button class="dock-btn" id="import-scene-btn" title="Open a saved project">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3z"/></svg>
+      <span>Open</span>
+    </button>
+    <button class="dock-btn" id="export-glb-btn" title="Export the scene as a single .glb bundle">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11M8 10l4 4 4-4"/><path d="M4 17v3h16v-3"/></svg>
+      <span>Export</span>
+    </button>
+  </div>
+
+  <div class="dock-divider"></div>
+
+  <div class="dock-group" data-group="ai">
+    <button class="dock-btn" id="chat-toggle-btn" title="Talk to the AI guide">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-4 3.5V16H4z"/></svg>
+      <span>Chat</span>
+    </button>
+    <button class="dock-btn" id="character-btn" title="Replace the AI guide with your own character model">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="8" rx="3"/><path d="M5 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/></svg>
+      <span>Guide</span>
+    </button>
+    <button class="dock-btn" id="character-reset-btn" style="display:none" title="Restore the default guide">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.5 5.8M4 17v-3h3"/></svg>
+      <span>Reset</span>
+    </button>
+    <button class="dock-btn" id="api-key-btn" title="Configure the AI guide (API key)">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="14" r="4"/><path d="M11 11l8-8M16 3l3 3M14 5l2 2"/></svg>
+      <span>AI Guide</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── Contextual selection toolbar (shown only when something is selected) ── -->
+<div id="selection-toolbar" class="desktop-ui" data-open="false">
+  <div class="seg" id="transform-modes">
+    <button class="seg-btn mode-btn active" data-mode="translate" title="Move (T)">Move</button>
+    <button class="seg-btn mode-btn" data-mode="rotate" title="Rotate (R)">Rotate</button>
+    <button class="seg-btn mode-btn" data-mode="scale" title="Scale (S)">Scale</button>
+  </div>
+  <div class="sel-divider"></div>
+  <button class="chip-btn" id="snap-btn" title="Snap to grid (G)">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+    <span>Snap</span>
+  </button>
+  <button class="chip-btn" id="duplicate-btn" title="Duplicate (D)">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/></svg>
+    <span>Duplicate</span>
+  </button>
+  <button class="chip-btn danger" id="delete-btn" title="Delete (Del)">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
+    <span>Delete</span>
+  </button>
 </div>
 
-<!-- Transform Mode (desktop) -->
-<div id="transform-modes">
-  <button class="toolbar-btn mode-btn active" data-mode="translate">Move (T)</button>
-  <button class="toolbar-btn mode-btn" data-mode="rotate">Rotate (R)</button>
-  <button class="toolbar-btn mode-btn" data-mode="scale">Scale (S)</button>
-</div>
-
-<!-- Light Properties Panel -->
-<div id="light-props">
-  <div style="font-weight:600;margin-bottom:10px;">&#x1f4a1; Light Properties</div>
-  <div class="prop-row">
-    <label>Color</label>
-    <input type="color" id="light-color" value="#ffffff">
+<!-- ── Inspector drawer (Scene / Light / Dev) ───────────────────────────── -->
+<aside id="inspector" class="desktop-ui drawer" data-open="false" data-tab="scene">
+  <div class="insp-head">
+    <div class="insp-tabs">
+      <button class="insp-tab active" data-tab="scene">Scene</button>
+      <button class="insp-tab" data-tab="light">Light</button>
+      <button class="insp-tab" id="dev-btn" data-tab="dev">Dev</button>
+    </div>
+    <button class="drawer-close" id="inspector-close" title="Close" aria-label="Close">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
   </div>
-  <div class="prop-row">
-    <label>Intensity</label>
-    <input type="range" id="light-intensity" min="0" max="10" step="0.1" value="1">
-    <span id="light-intensity-val" style="width:30px;text-align:right;">1.0</span>
+  <div class="insp-body">
+    <!-- Scene tab -->
+    <section class="insp-section" data-tab="scene" id="asset-panel">
+      <div class="ap-header"><span>Scene</span><span id="ap-count"></span></div>
+      <div id="ap-defaults-folder" class="ap-folder"></div>
+      <div id="ap-objects-section" class="ap-section">Objects</div>
+      <div id="ap-objects-list"></div>
+      <div id="ap-lights-section" class="ap-section">User Lights</div>
+      <div id="ap-lights-list"></div>
+    </section>
+    <!-- Light tab -->
+    <section class="insp-section" data-tab="light" id="light-props">
+      <div id="light-props-empty" class="insp-empty">Select a light to edit its color and intensity.</div>
+      <div id="light-props-body">
+        <div class="prop-row">
+          <label>Color</label>
+          <input type="color" id="light-color" value="#ffffff">
+        </div>
+        <div class="prop-row">
+          <label>Intensity</label>
+          <input type="range" id="light-intensity" min="0" max="10" step="0.1" value="1">
+          <span id="light-intensity-val">1.0</span>
+        </div>
+        <button class="chip-btn danger full" id="light-delete-btn">Remove light</button>
+      </div>
+    </section>
+    <!-- Dev tab -->
+    <section class="insp-section" data-tab="dev" id="dev-panel">
+      <div class="dev-section">Character Animation</div>
+      <button class="dev-btn" id="dev-talk-toggle">Force Talking: OFF</button>
+      <button class="dev-btn" id="dev-talk-burst">Talk Burst (3s)</button>
+      <div class="dev-row">
+        <label class="dev-label">talkTimer</label>
+        <span id="dev-talk-timer-val" class="dev-val">0.00</span>
+      </div>
+
+      <div class="dev-section">Bone Tweaks (Idle)</div>
+      <select id="dev-bone-select" class="dev-select">
+        <option value="">— select bone —</option>
+      </select>
+      <div class="dev-row" style="margin-top:6px;"><label class="dev-label">X</label><input type="range" class="dev-slider" id="bt-x" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-x-val">0.00</span></div>
+      <div class="dev-row"><label class="dev-label">Y</label><input type="range" class="dev-slider" id="bt-y" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-y-val">0.00</span></div>
+      <div class="dev-row"><label class="dev-label">Z</label><input type="range" class="dev-slider" id="bt-z" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-z-val">0.00</span></div>
+      <button class="dev-btn" id="dev-log-pose" style="margin-top:4px;">Log All Tweaks</button>
+
+      <div class="dev-section">Mixamo Bones</div>
+      <button class="dev-btn" id="dev-log-bones">Log Tracked Bones</button>
+      <button class="dev-btn" id="dev-dump-bones">Dump All Node Names</button>
+      <div id="dev-bones-list" class="dev-bones"></div>
+
+      <div class="dev-section">Scene Info</div>
+      <button class="dev-btn" id="dev-log-scene">Log Scene Graph</button>
+      <div class="dev-row">
+        <label class="dev-label">Objects</label>
+        <span id="dev-object-count" class="dev-val">0</span>
+      </div>
+      <div class="dev-row">
+        <label class="dev-label">FPS</label>
+        <span id="dev-fps" class="dev-val">—</span>
+      </div>
+    </section>
   </div>
-  <button class="toolbar-btn" id="light-delete-btn" style="width:100%;margin-top:6px;">Remove Light</button>
-</div>
+</aside>
 
-<!-- Dev Panel -->
-<div id="dev-panel">
-  <div class="dev-header">
-    <span>&#x1f6e0;&#xfe0f; Dev Controls</span>
-    <button id="dev-close-btn" class="dev-close">&#x2715;</button>
+<!-- ── World drawer (Templates / Skybox / Mood) ─────────────────────────── -->
+<aside id="world-panel" class="desktop-ui drawer drawer-left" data-open="false">
+  <div class="insp-head">
+    <div class="drawer-title">World</div>
+    <button class="drawer-close" id="world-close" title="Close" aria-label="Close">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
   </div>
+  <div class="world-body">
+    <div class="world-section-label">Template</div>
+    <div id="template-tiles" class="tile-grid"></div>
 
-  <div class="dev-section">Character Animation</div>
-  <button class="dev-btn" id="dev-talk-toggle">&#x1f4ac; Force Talking: OFF</button>
-  <button class="dev-btn" id="dev-talk-burst">&#x23f1;&#xfe0f; Talk Burst (3s)</button>
-  <div class="dev-row">
-    <label class="dev-label">talkTimer</label>
-    <span id="dev-talk-timer-val" class="dev-val">0.00</span>
+    <div class="world-section-label">Lighting mood</div>
+    <div id="mood-row">
+      <button class="chip-btn" id="env-btn" title="Cycle daylight / sunset / evening">Daylight</button>
+      <span class="world-hint">Applies to any template.</span>
+    </div>
+
+    <div class="world-section-label">Skybox</div>
+    <div id="skybox-controls">
+      <div id="skybox-presets" class="tile-grid sky"></div>
+      <button class="chip-btn full" id="skybox-upload-btn">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M8 9l4-4 4 4"/><path d="M4 16v3h16v-3"/></svg>
+        <span>Upload skybox…</span>
+      </button>
+      <div class="skybox-url-row">
+        <input id="skybox-url-input" type="text" placeholder="…or paste an image / .hdr URL" autocomplete="off" />
+        <button class="chip-btn" id="skybox-url-btn">Load</button>
+      </div>
+      <label class="check-row" title="Light the scene using the skybox (image-based lighting)">
+        <input type="checkbox" id="skybox-ibl-toggle" /> Light scene from skybox
+      </label>
+      <p class="world-hint">
+        Use an <b>equirectangular</b> panorama (.hdr, .exr, .jpg, .png).
+        Free CC0 HDRIs at <a href="https://polyhaven.com/hdris" target="_blank" rel="noopener">polyhaven.com</a>.
+      </p>
+      <div id="skybox-status" class="world-status"></div>
+    </div>
   </div>
+</aside>
 
-  <div class="dev-section">Bone Tweaks (Idle)</div>
-  <select id="dev-bone-select" class="dev-select">
-    <option value="">— select bone —</option>
-  </select>
-  <div class="dev-row" style="margin-top:6px;"><label class="dev-label">X</label><input type="range" class="dev-slider" id="bt-x" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-x-val">0.00</span></div>
-  <div class="dev-row"><label class="dev-label">Y</label><input type="range" class="dev-slider" id="bt-y" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-y-val">0.00</span></div>
-  <div class="dev-row"><label class="dev-label">Z</label><input type="range" class="dev-slider" id="bt-z" min="-3.14" max="3.14" step="0.01" value="0"><span class="dev-val" id="bt-z-val">0.00</span></div>
-  <button class="dev-btn" id="dev-log-pose" style="margin-top:4px;">&#x1f4cb; Log All Tweaks</button>
-
-  <div class="dev-section">Mixamo Bones</div>
-  <button class="dev-btn" id="dev-log-bones">&#x1f9b4; Log Tracked Bones</button>
-  <button class="dev-btn" id="dev-dump-bones">&#x1f4dc; Dump All Node Names</button>
-  <div id="dev-bones-list" class="dev-bones"></div>
-
-  <div class="dev-section">Scene Info</div>
-  <button class="dev-btn" id="dev-log-scene">&#x1f4cb; Log Scene Graph</button>
-  <div class="dev-row">
-    <label class="dev-label">Objects</label>
-    <span id="dev-object-count" class="dev-val">0</span>
-  </div>
-  <div class="dev-row">
-    <label class="dev-label">FPS</label>
-    <span id="dev-fps" class="dev-val">—</span>
+<!-- ── First-run onboarding ─────────────────────────────────────────────── -->
+<div id="onboarding" class="desktop-ui" data-open="false">
+  <div class="onb-card">
+    <div class="onb-head">
+      <div class="onb-mark">Diorama</div>
+      <p class="onb-lede">Build a 3D space, fill it with anything, and step inside — on your screen or in VR. Pick a starting world:</p>
+    </div>
+    <div id="onboarding-templates" class="tile-grid onb"></div>
+    <div class="onb-controls">
+      <div class="onb-keys">
+        <span><b>Drag</b> to orbit</span>
+        <span><b>Scroll</b> to zoom</span>
+        <span>Hold <b>right-drag + WASD</b> to fly</span>
+        <span><b>T / R / S</b> move · rotate · scale</span>
+      </div>
+    </div>
+    <div class="onb-foot">
+      <label class="check-row"><input type="checkbox" id="onboarding-dismiss" checked /> Don't show this again</label>
+      <button class="chip-btn primary" id="onboarding-start">Start building</button>
+    </div>
   </div>
 </div>
 
 <!-- Shortcuts hint -->
-<div id="shortcuts-hint">
-  T: Move &middot; R: Rotate &middot; S: Scale &middot; &#x21e7;+drag axis: Uniform scale &middot; Del: Delete &middot; D: Clone &middot; G: Snap &middot; &#x2318;Z: Undo &middot; &#x21e7;&#x2318;Z: Redo<br>
-  Fly cam: hold <b>RMB</b> + <b>WASD</b> move &middot; <b>Q/E</b> down/up &middot; mouse to look &middot; wheel: speed &middot; &#x21e7;: sprint &middot; Ctrl: creep
+<div id="shortcuts-hint" class="desktop-ui">
+  T: Move &middot; R: Rotate &middot; S: Scale &middot; &#x21e7;+drag: Uniform scale &middot; Del: Delete &middot; D: Clone &middot; G: Snap &middot; &#x2318;Z / &#x21e7;&#x2318;Z: Undo / Redo<br>
+  Fly cam: hold <b>RMB</b> + <b>WASD</b> &middot; <b>Q/E</b> down/up &middot; wheel: speed &middot; &#x21e7;: sprint &middot; Ctrl: creep
 </div>
 
 <!-- API Key Settings -->
-<div id="api-key-panel" style="display:none;">
-  <div style="font-weight:600; margin-bottom:10px;">&#x2699;&#xfe0f; POE API Key</div>
-  <div style="margin-bottom:8px; font-size:12px; color:rgba(255,255,255,0.5);">Enter your POE API key to enable AI chat.</div>
+<div id="api-key-panel" class="popover" style="display:none;">
+  <div class="popover-title">AI Guide</div>
+  <div class="popover-sub">Enter your POE API key to enable the AI guide's chat.</div>
   <input id="api-key-input" type="password" placeholder="Paste your POE API key" autocomplete="off" />
-  <input id="bot-name-input" type="text" placeholder="Bot name (default: ai_ministerbot)" autocomplete="off" style="margin-top:6px;" />
-  <div style="display:flex;gap:6px;margin-top:8px;">
-    <button class="toolbar-btn" id="api-key-save-btn" style="flex:1;">Save</button>
-    <button class="toolbar-btn" id="api-key-cancel-btn" style="flex:1;">Cancel</button>
+  <input id="bot-name-input" type="text" placeholder="Assistant name (optional)" autocomplete="off" style="margin-top:6px;" />
+  <div class="popover-actions">
+    <button class="chip-btn primary" id="api-key-save-btn">Save</button>
+    <button class="chip-btn" id="api-key-cancel-btn">Cancel</button>
   </div>
-  <div id="api-key-status" style="margin-top:8px;font-size:12px;"></div>
+  <div id="api-key-status" class="popover-status"></div>
 </div>
 
 <!-- Desktop Chat -->
-<div id="chat-panel">
+<div id="chat-panel" class="desktop-ui">
   <div id="chat-output">
-    <div class="msg msg-system">Type a message to talk to the AI character.</div>
+    <div class="msg msg-system">Say hello to your AI guide.</div>
   </div>
   <div id="chat-input-row">
     <input id="chat-input" type="text" placeholder="Say something…" autocomplete="off" />
@@ -156,15 +333,17 @@
 <input type="file" id="file-input" accept=".glb,.gltf,.jpg,.jpeg,.png,.webp" />
 <input type="file" id="character-input" accept=".glb" style="display:none" />
 <input type="file" id="scene-file-input" accept=".zip,.glb" style="display:none" />
+<input type="file" id="skybox-file-input" accept=".hdr,.exr,.jpg,.jpeg,.png,.webp" style="display:none" />
 
-<!-- Import Modal (Primitives + Upload) -->
+<!-- Import Modal (Add / Generate) -->
 <div id="import-modal" class="modal hidden">
   <div class="modal-content">
-    <h3>&#x1f4e6; Import 3D Object</h3>
+    <h3>Add to scene</h3>
     <div class="modal-tabs">
-      <button class="modal-tab active" data-tab="primitives">Primitives</button>
-      <button class="modal-tab" data-tab="upload">Upload File</button>
-      <button class="modal-tab" data-tab="image">&#x1f5bc;&#xfe0f; Image</button>
+      <button class="modal-tab active" data-tab="primitives">Shapes</button>
+      <button class="modal-tab" data-tab="upload">Model</button>
+      <button class="modal-tab" data-tab="image">Image</button>
+      <button class="modal-tab" data-tab="ai">Generate</button>
     </div>
     <div id="tab-primitives" class="tab-panel">
       <div class="primitive-grid">
@@ -196,37 +375,53 @@
     </div>
     <div id="tab-upload" class="tab-panel hidden">
       <div class="upload-area" id="modal-upload-area">
-        <p>&#x1f4c1; Click to select a .glb or .gltf file</p>
+        <p>Click to select a .glb or .gltf file</p>
         <p class="upload-hint">Supported: .glb, .gltf</p>
       </div>
       <input type="file" id="modal-file-input" accept=".glb,.gltf" style="display:none" />
     </div>
     <div id="tab-image" class="tab-panel hidden">
       <div class="upload-area" id="modal-image-area">
-        <p>&#x1f5bc;&#xfe0f; Click to select a JPG or PNG</p>
+        <p>Click to select a JPG or PNG</p>
         <p class="upload-hint">Placed upright at its original aspect ratio &middot; resize stays ratio-locked</p>
       </div>
       <input type="file" id="modal-image-input" accept=".jpg,.jpeg,.png,.webp" style="display:none" />
     </div>
+    <div id="tab-ai" class="tab-panel hidden">
+      <textarea id="tripo-text-input" class="tripo-textarea" rows="3"
+        placeholder="Describe an object to create&#8230; e.g. &#8220;a low-poly wooden chair&#8221;"></textarea>
+      <button class="tripo-generate-btn" id="tripo-text-btn"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.7 4.8 4.8 1.7-4.8 1.7L12 16l-1.7-4.8L5.5 9.5l4.8-1.7z"/></svg>Generate 3D</button>
+      <label class="tripo-opt" title="Skip texturing for an instant grey mesh">
+        <input type="checkbox" id="tripo-draft" /> Draft only &middot; fastest, no textures
+      </label>
+      <p class="tripo-hint">Shows the mesh in seconds, then textures it in place.</p>
+      <div class="tripo-or">&#8212; or &#8212;</div>
+      <div class="upload-area" id="tripo-image-area">
+        <p>Generate 3D from an image</p>
+        <p class="upload-hint">Pick a JPG / PNG / WEBP &middot; turns the picture into a model</p>
+      </div>
+      <input type="file" id="tripo-image-input" accept=".jpg,.jpeg,.png,.webp" style="display:none" />
+      <div id="tripo-progress" class="tripo-progress hidden">
+        <div class="tripo-bar"><div id="tripo-bar-fill"></div></div>
+        <div id="tripo-status" class="tripo-status"></div>
+      </div>
+      <div id="tripo-notice" class="tripo-notice hidden"></div>
+      <details class="tripo-advanced">
+        <summary>How your words are enhanced</summary>
+        <p class="tripo-advanced-note">Every prompt is wrapped server-side for clean,
+          WebXR-ready output. Edit the template in <code>tripo.py</code> &rarr; <code>TRIPO_SYSTEM_PROMPT</code>.</p>
+        <pre id="tripo-sysprompt" class="tripo-sysprompt">&#8230;</pre>
+      </details>
+    </div>
     <div class="modal-actions">
       <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
-      <button class="modal-btn primary" id="modal-add">Add to Scene</button>
+      <button class="modal-btn primary" id="modal-add">Add to scene</button>
     </div>
   </div>
 </div>
 
 <!-- Polygon Budget Warning -->
-<div id="poly-warning" style="display:none;"></div>
-
-<!-- Asset Panel -->
-<div id="asset-panel">
-  <div class="ap-header"><span>&#x1f4cb; Scene Assets</span><span id="ap-count"></span></div>
-  <div id="ap-defaults-folder" class="ap-folder"></div>
-  <div id="ap-objects-section" class="ap-section">Objects</div>
-  <div id="ap-objects-list"></div>
-  <div id="ap-lights-section" class="ap-section">User Lights</div>
-  <div id="ap-lights-list"></div>
-</div>
+<div id="poly-warning" class="desktop-ui" style="display:none;"></div>
 
 
 <script type="importmap">

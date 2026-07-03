@@ -6,6 +6,7 @@ import { scene, userLights, setSelectedObject, selectedObject, wsSend, genId, my
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo } from './undo.js';
 import { PALETTE, DIM } from './tokens.js';
+import { openInspectorTab } from './ui.js';
 
 // ── Default lights ──
 export let ambientLight, dirLight, rimLight, fillLight, hemisphereLight;
@@ -73,13 +74,16 @@ export function showLightProps(info) {
   lightColorInput.value = '#' + info.light.color.getHexString();
   lightIntensityInput.value = info.light.intensity;
   lightIntensityVal.textContent = info.light.intensity.toFixed(1);
-  lightPropsPanel.style.display = 'block';
+  lightPropsPanel.classList.add('has-light');
+  openInspectorTab('light');
   refreshAssetPanel();
 }
 
 export function hideLightProps() {
   activeLightInfo = null;
-  lightPropsPanel.style.display = 'none';
+  // Just clear the Light tab — never force the Inspector drawer open/closed here, so
+  // selecting a non-light object doesn't yank the user off whatever tab they're viewing.
+  lightPropsPanel.classList.remove('has-light');
 }
 
 lightColorInput.addEventListener('input', () => {

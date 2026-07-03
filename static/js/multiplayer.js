@@ -10,7 +10,7 @@ import { addDirectionalLight, addPointLight } from './lights.js';
 import { createPrimitive, createImagePlane } from './assets.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { addMessage, showSpeechBubble } from './chat.js';
-import { applyEnvPreset, envPresets, setEnvIndex } from './environment.js';
+import { applyWorldDescriptor, worldFromLegacyEnvIndex } from './templates.js';
 import { clearMixamoModel, loadMixamoFromUrl } from './humanoid.js';
 
 const remoteUsers   = new Map();
@@ -48,14 +48,17 @@ function updateConnectedCount(count) {
   document.getElementById('connected-count').textContent = n + ' connected';
 }
 
-function applyRemoteEnvironment(index = 0) {
-  if (!envPresets[index]) return;
-  setEnvIndex(index);
-  applyEnvPreset(envPresets[index]);
-  document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[index].name;
+// Apply a world (template + mood + skybox) sent by a peer. Accepts a full descriptor
+// or a legacy {envIndex} from an older client/server.
+function applyRemoteWorld(msg) {
+  if (msg && msg.templateId) {
+    applyWorldDescriptor(msg, { remote: true, push: false });
+  } else {
+    applyWorldDescriptor(worldFromLegacyEnvIndex(msg?.envIndex ?? 0), { remote: true, push: false });
+  }
 }
 
-function resetRemoteScene({ resetCharacter = true, envIndex = 0 } = {}) {
+function resetRemoteScene(msg = {}) {
   document.dispatchEvent(new CustomEvent('deselect-all'));
 
   for (const obj of [...importedObjects]) {
@@ -71,13 +74,13 @@ function resetRemoteScene({ resetCharacter = true, envIndex = 0 } = {}) {
   }
   userLights.length = 0;
 
-  if (resetCharacter) {
+  if (msg.resetCharacter !== false) {
     clearMixamoModel();
     const resetBtn = document.getElementById('character-reset-btn');
     if (resetBtn) resetBtn.style.display = 'none';
   }
 
-  applyRemoteEnvironment(envIndex);
+  applyRemoteWorld(msg.world || msg);
   refreshAssetPanel();
 }
 
@@ -189,8 +192,10 @@ function reconstructScene(state, loadGLBFn) {
   } else {
     clearMixamoModel();
   }
-  if (state.envIndex !== undefined) {
-    applyRemoteEnvironment(state.envIndex);
+  if (state.world) {
+    applyWorldDescriptor(state.world, { remote: true, push: false });
+  } else if (state.envIndex !== undefined) {
+    applyRemoteWorld({ envIndex: state.envIndex });
   }
 }
 
@@ -226,7 +231,7 @@ function handleWSMessage(msg, loadGLBFn) {
       break;
     }
     case 'scene_reset':
-      resetRemoteScene({ envIndex: msg.envIndex ?? 0 });
+      resetRemoteScene(msg);
       break;
     case 'user_move':
       updateCursor(msg.userId, msg);
@@ -270,7 +275,7 @@ function handleWSMessage(msg, loadGLBFn) {
       removeRemoteLight(msg.id);
       break;
     case 'env_change':
-      applyRemoteEnvironment(msg.envIndex);
+      applyRemoteWorld(msg);
       break;
     case 'character_set':
       if (msg.character?.url) {

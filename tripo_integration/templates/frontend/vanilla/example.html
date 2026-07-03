@@ -1,0 +1,55 @@
+<!--
+  Minimal vanilla TS/JS example — prompt → generate → render.
+  Copy this alongside tripo-client.ts and viewer.ts, then open via any Vite-like
+  dev server so that imports work and /api/tripo is proxied to the backend.
+-->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tripo Viewer</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #111; color: #eee; }
+      #controls { padding: 12px; display: flex; gap: 8px; align-items: center; }
+      #prompt { flex: 1; padding: 8px; font-size: 14px; }
+      #status { padding: 8px 12px; min-height: 20px; font-size: 13px; color: #8cf; }
+      canvas { width: 100vw; height: calc(100vh - 90px); display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <input id="prompt" placeholder="a low-poly red apple" />
+      <button id="go">Generate</button>
+    </div>
+    <div id="status"></div>
+    <canvas id="c"></canvas>
+
+    <script type="module">
+      import { generateTripoModel } from "./tripo-client.ts";
+      import { createTripoViewer } from "./viewer.ts";
+
+      const viewer = createTripoViewer(document.getElementById("c"));
+      const status = document.getElementById("status");
+      document.getElementById("go").addEventListener("click", async () => {
+        const prompt = document.getElementById("prompt").value.trim();
+        if (!prompt) return;
+        status.textContent = "Submitting…";
+        try {
+          const glbUrl = await generateTripoModel(
+            { prompt },
+            {
+              onProgress: (p, s) => {
+                status.textContent = `${s} — ${p}%`;
+              },
+            }
+          );
+          status.textContent = "Loading model…";
+          await viewer.loadModel(glbUrl);
+          status.textContent = "Done.";
+        } catch (err) {
+          status.textContent = `Error: ${err.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

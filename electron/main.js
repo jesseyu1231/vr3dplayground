@@ -41,7 +41,7 @@ async function init() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    title: '3D AI Environment — Desktop Builder',
+    title: 'Diorama — 3D scene studio',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

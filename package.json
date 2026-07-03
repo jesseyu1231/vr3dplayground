@@ -1,7 +1,7 @@
 {
   "name": "vr3dplayground-desktop",
   "version": "1.0.3",
-  "description": "3D AI Environment — Desktop Builder",
+  "description": "Diorama — 3D scene studio",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -22,11 +22,12 @@
   },
   "build": {
     "appId": "com.ritsxrspace.3dbuilder",
-    "productName": "3D AI Environment",
+    "productName": "Diorama",
     "asar": false,
     "files": [
       "electron/**/*",
       "server-node.js",
+      "tripo-node.js",
       "index.html",
       "static/css/**/*",
       "static/js/**/*"
@@ -57,7 +58,7 @@
       "createStartMenuShortcut": true
     },
     "dmg": {
-      "title": "3D AI Environment",
+      "title": "Diorama",
       "window": { "width": 540, "height": 380 }
     }
   }

@@ -8,6 +8,7 @@ import { camera, renderer, scene, importedObjects, userLights, selectedObject, s
 import { showLightProps, hideLightProps } from './lights.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { pushUndo, performUndo, performRedo } from './undo.js';
+import { openPanel, closePanel } from './ui.js';
 
 // ── OrbitControls ──
 export const orbitControls = new OrbitControls(camera, renderer.domElement);
@@ -116,6 +117,7 @@ export function selectObject(obj) {
   tControls.attach(obj);
   if (obj.userData.lightInfo) showLightProps(obj.userData.lightInfo);
   else hideLightProps();
+  openPanel('selection-toolbar');
   refreshAssetPanel();
 }
 
@@ -123,6 +125,7 @@ export function deselectAll() {
   setSelectedObject(null);
   tControls.detach();
   hideLightProps();
+  closePanel('selection-toolbar');
   refreshAssetPanel();
 }
 

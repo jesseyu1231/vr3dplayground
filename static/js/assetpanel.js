@@ -7,6 +7,8 @@ import { orbitControls } from './controls.js';
 import { defaultLights, activeLightInfo, showLightProps, hideLightProps } from './lights.js';
 import { deleteDocent, restoreDocent, isDocentInScene } from './humanoid.js';
 import { pushUndo } from './undo.js';
+import { ICON } from './icons.js';
+import { isInspectorTabOpen, openInspectorTab, closePanel } from './ui.js';
 
 const assetPanel    = document.getElementById('asset-panel');
 const assetPanelBtn = document.getElementById('asset-panel-btn');
@@ -71,6 +73,16 @@ function restoreDefaultItems(items) {
   refreshAssetPanel();
 }
 
+// ── Imported-object show/hide ────────────────────────────────────────────────
+// Toggles obj.visible (scene-keep, mirroring the Defaults folder): the object stays
+// in importedObjects so it can still be selected/transformed/exported, and undo
+// restores its prior visibility. Three.js skips rendering subtrees with visible=false.
+function toggleObjectVisibility(obj) {
+  pushUndo({ type: 'object_visibility', id: obj.userData.id, visible: obj.visible });
+  obj.visible = !obj.visible;
+  refreshAssetPanel();
+}
+
 // Folder-level "all" — also toggles the default lights shown inside the folder, as ONE
 // undo entry so the whole folder reverts in a single step.
 function snapshotLights(lights) {
@@ -107,10 +119,10 @@ function makeDefaultItemRow(item) {
     `<span class="ap-icon">${item.icon}</span>` +
     `<span class="ap-name" title="${item.name}">${item.name}</span>` +
     `<span class="ap-actions">` +
-      (inScene ? `<button class="ap-btn" data-action="focus" title="Focus camera">🔍</button>` : '') +
+      (inScene ? `<button class="ap-btn" data-action="focus" title="Focus camera">${ICON.focus()}</button>` : '') +
       (inScene
-        ? `<button class="ap-btn" data-action="delete" title="Remove from scene">✖</button>`
-        : `<button class="ap-btn" data-action="restore" title="Restore">➕</button>`) +
+        ? `<button class="ap-btn" data-action="delete" title="Remove from scene">${ICON.close()}</button>`
+        : `<button class="ap-btn" data-action="restore" title="Restore">${ICON.plus()}</button>`) +
     `</span>`;
   div.addEventListener('click', (e) => {
     const action = e.target.dataset?.action;
@@ -131,8 +143,8 @@ function makeDefaultLightRow(dl) {
     `<span class="ap-name">${dl.name} (${dl.light.intensity.toFixed(1)})</span>` +
     `<span class="ap-actions">` +
     (inScene
-      ? `<button class="ap-btn" data-action="delete" title="Remove">✖</button>`
-      : `<button class="ap-btn" data-action="restore" title="Restore">➕</button>`) +
+      ? `<button class="ap-btn" data-action="delete" title="Remove">${ICON.close()}</button>`
+      : `<button class="ap-btn" data-action="restore" title="Restore">${ICON.plus()}</button>`) +
     `</span>`;
   div.addEventListener('click', (e) => {
     const action = e.target.dataset?.action;
@@ -150,13 +162,9 @@ function makeDefaultLightRow(dl) {
       return;
     }
     if (inScene) {
+      // showLightProps reads dl.light, fills the inputs, opens the Inspector's Light tab,
+      // and refreshes the panel — so this single call does everything for default lights too.
       showLightProps(dl);
-      // dl has no handle, so also drive the panel inputs directly
-      lightColorInput.value = colorHex;
-      lightIntensityInput.value = dl.light.intensity;
-      lightIntensityVal.textContent = dl.light.intensity.toFixed(1);
-      lightPropsPanel.style.display = 'block';
-      refreshAssetPanel();
     }
   });
   return div;
@@ -173,13 +181,13 @@ function renderDefaultsFolder() {
   header.className = 'ap-folder-header';
   header.innerHTML =
     `<span class="ap-folder-chevron">${defaultsFolderOpen ? '▾' : '▸'}</span>` +
-    `<span class="ap-icon">📁</span>` +
+    `<span class="ap-icon">${ICON.folder()}</span>` +
     `<span class="ap-folder-title">Defaults</span>` +
     `<span class="ap-folder-count">${inSceneCount}/${totalCount}</span>` +
     `<span class="ap-actions">` +
     (anyInScene
-      ? `<button class="ap-btn" data-action="delete-all" title="Remove all defaults (items + lights)">✖</button>`
-      : `<button class="ap-btn" data-action="restore-all" title="Restore all defaults (items + lights)">➕</button>`) +
+      ? `<button class="ap-btn" data-action="delete-all" title="Remove all defaults (items + lights)">${ICON.close()}</button>`
+      : `<button class="ap-btn" data-action="restore-all" title="Restore all defaults (items + lights)">${ICON.plus()}</button>`) +
     `</span>`;
   header.addEventListener('click', (e) => {
     const action = e.target.dataset?.action;
@@ -207,7 +215,7 @@ function renderDefaultsFolder() {
 }
 
 export function refreshAssetPanel() {
-  if (assetPanel.style.display !== 'block') return;
+  if (!isInspectorTabOpen('scene')) return;
   const total = importedObjects.length + userLights.length + defaultLights.length + defaultItems.length;
   apCount.textContent = total + ' item' + (total !== 1 ? 's' : '');
 
@@ -222,13 +230,20 @@ export function refreshAssetPanel() {
     for (const obj of importedObjects) {
       const name  = obj.userData.displayName || obj.name || 'Object';
       const isSel = obj === selectedObject;
-      const icon  = obj.userData.isImage ? '🖼️' : '📦';
+      const icon  = obj.userData.isImage ? ICON.image() : ICON.box();
       const div = document.createElement('div');
-      div.className = 'ap-item' + (isSel ? ' selected' : '');
+      div.className = 'ap-item' + (isSel ? ' selected' : '') + (obj.visible ? '' : ' removed');
+      const eyeIcon  = obj.visible ? ICON.eye() : ICON.eyeOff();
+      const eyeTitle = obj.visible ? 'Hide' : 'Show';
       div.innerHTML = `<span class="ap-icon">${icon}</span><span class="ap-name" title="${name}">${name}</span>` +
-        `<span class="ap-actions"><button class="ap-btn" data-action="focus" title="Focus camera">🔍</button></span>`;
+        `<span class="ap-actions">` +
+          `<button class="ap-btn" data-action="visibility" title="${eyeTitle}">${eyeIcon}</button>` +
+          `<button class="ap-btn" data-action="focus" title="Focus camera">${ICON.focus()}</button>` +
+        `</span>`;
       div.addEventListener('click', (e) => {
-        if (e.target.dataset.action === 'focus') { focusOnObject(obj); return; }
+        const action = e.target.dataset.action;
+        if (action === 'visibility') { toggleObjectVisibility(obj); return; }
+        if (action === 'focus') { focusOnObject(obj); return; }
         document.dispatchEvent(new CustomEvent('select-object', { detail: obj }));
       });
       apObjectsList.appendChild(div);
@@ -247,7 +262,7 @@ export function refreshAssetPanel() {
       const div = document.createElement('div');
       div.className = 'ap-item' + (isSel ? ' selected' : '');
       div.innerHTML = `<span class="ap-icon" style="color:${colorHex}">●</span><span class="ap-name">${name} (${li.light.intensity.toFixed(1)})</span>` +
-        `<span class="ap-actions"><button class="ap-btn" data-action="focus" title="Focus camera">🔍</button></span>`;
+        `<span class="ap-actions"><button class="ap-btn" data-action="focus" title="Focus camera">${ICON.focus()}</button></span>`;
       div.addEventListener('click', (e) => {
         if (e.target.dataset.action === 'focus') { focusOnObject(li.handle); return; }
         document.dispatchEvent(new CustomEvent('select-object', { detail: li.handle }));
@@ -258,11 +273,15 @@ export function refreshAssetPanel() {
 }
 
 export function initAssetPanel() {
+  // The dock "Scene" button opens the Inspector to the Scene tab (or closes it if
+  // already there). The Inspector's own tab strip + close button are wired in ui.js.
   assetPanelBtn.addEventListener('click', () => {
-    const vis = assetPanel.style.display !== 'block';
-    assetPanel.style.display = vis ? 'block' : 'none';
-    assetPanelBtn.classList.toggle('active', vis);
-    if (vis) refreshAssetPanel();
+    if (isInspectorTabOpen('scene')) closePanel('inspector');
+    else openInspectorTab('scene');
+  });
+  // Repopulate the list whenever the Scene tab becomes active.
+  document.addEventListener('inspector-tab-change', (e) => {
+    if (e.detail === 'scene') refreshAssetPanel();
   });
 }
 

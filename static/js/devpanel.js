@@ -1,14 +1,13 @@
 /**
  * devpanel.js — developer controls sidebar.
- * Toggle with the 🛠 Dev toolbar button.
+ * Toggle with the Dev toolbar button.
  */
 import { scene, importedObjects } from './state.js';
 import { setTalking, isTalking } from './chat.js';
 import { getMixamoBones, getMixamoRoot, tweakBoneRest } from './humanoid.js';
+import { isInspectorTabOpen } from './ui.js';
 
 const panel       = document.getElementById('dev-panel');
-const devBtn      = document.getElementById('dev-btn');
-const closeBtn    = document.getElementById('dev-close-btn');
 const talkToggle  = document.getElementById('dev-talk-toggle');
 const talkBurst   = document.getElementById('dev-talk-burst');
 const talkTimerEl = document.getElementById('dev-talk-timer-val');
@@ -82,22 +81,13 @@ document.getElementById('dev-log-pose').addEventListener('click', () => {
   alert(text || 'All tweaks are zero.');
 });
 
-// ── Panel toggle ──────────────────────────────────────────────────────────────
-devBtn.addEventListener('click', () => {
-  const open = panel.style.display === 'block';
-  panel.style.display = open ? 'none' : 'block';
-  devBtn.classList.toggle('active', !open);
-});
-closeBtn.addEventListener('click', () => {
-  panel.style.display = 'none';
-  devBtn.classList.remove('active');
-});
+// Panel visibility is owned by the Inspector "Dev" tab (#dev-btn .insp-tab → ui.js).
 
 // ── Force talking toggle ──────────────────────────────────────────────────────
 talkToggle.addEventListener('click', () => {
   forceTalking = !forceTalking;
   setTalking(forceTalking);
-  talkToggle.textContent = `💬 Force Talking: ${forceTalking ? 'ON' : 'OFF'}`;
+  talkToggle.textContent = `Force Talking: ${forceTalking ? 'ON' : 'OFF'}`;
   talkToggle.classList.toggle('active', forceTalking);
   if (forceTalking && burstTimeout) { clearTimeout(burstTimeout); burstTimeout = null; }
 });
@@ -123,7 +113,7 @@ const _boneRowEls = {};
 logBonesBtn.addEventListener('click', () => {
   _bonesLive = !_bonesLive;
   logBonesBtn.classList.toggle('active', _bonesLive);
-  logBonesBtn.textContent = _bonesLive ? '🦴 Live Bones: ON' : '🦴 Log Tracked Bones';
+  logBonesBtn.textContent = _bonesLive ? 'Live Bones: ON' : 'Log Tracked Bones';
   bonesList.innerHTML = '';
   Object.keys(_boneRowEls).forEach(k => delete _boneRowEls[k]);
 
@@ -192,7 +182,7 @@ let _frameCount = 0;
 let _fps = 0;
 
 export function updateDevPanel() {
-  if (panel.style.display !== 'block') return;
+  if (!isInspectorTabOpen('dev')) return;
 
   // FPS
   _frameCount++;

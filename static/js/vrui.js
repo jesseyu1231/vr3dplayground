@@ -113,9 +113,9 @@ export class WristPanel {
     const wrapW = CHAT_RIGHT - CHAT_X;
     for (let i = 0; i < this.state.history.length; i++) {
       const msg = this.state.history[i];
-      const color = msg.startsWith('You:') ? '#7eb8ff'
-                  : msg.startsWith('AI:')  ? '#b8ffb8'
-                  : '#ffd27e';
+      const color = msg.startsWith('You:') ? '#E3A57C'
+                  : msg.startsWith('AI:')  ? '#CFC2A6'
+                  : '#D9B48A';
       for (const line of wrapText(ctx, msg, wrapW)) out.push({ text: line, color });
       if (i < this.state.history.length - 1) out.push({ text: '', color: null });
     }
@@ -148,20 +148,20 @@ export class WristPanel {
     const W = PANEL_W_PX, H = PANEL_H_PX;
 
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(15, 15, 28, 0.94)';
+    ctx.fillStyle = 'rgba(28, 24, 20, 0.95)';
     roundRect(ctx, 0, 0, W, H, 22); ctx.fill();
-    ctx.strokeStyle = 'rgba(120, 170, 255, 0.45)';
+    ctx.strokeStyle = 'rgba(214, 68, 46, 0.5)';
     ctx.lineWidth = 4;
     roundRect(ctx, 2, 2, W - 4, H - 4, 20); ctx.stroke();
 
     // Title strip
-    ctx.fillStyle = 'rgba(74, 124, 255, 0.35)';
+    ctx.fillStyle = 'rgba(214, 68, 46, 0.32)';
     roundRect(ctx, 0, 0, W, 64, 22, /*onlyTop*/ true); ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 30px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('AI Minister', 24, 32);
+    ctx.fillText('Guide', 24, 32);
 
     // Chat history (with scrollable viewport)
     ctx.font = CHAT_FONT;
@@ -191,14 +191,14 @@ export class WristPanel {
       ctx.fillRect(trackX, trackY, 4, trackH);
       const thumbH = Math.max(20, trackH * (visibleCount / total));
       const thumbY = trackY + ((maxOffset - this.state.scrollOffset) / maxOffset) * (trackH - thumbH);
-      ctx.fillStyle = 'rgba(126, 184, 255, 0.7)';
+      ctx.fillStyle = 'rgba(232, 130, 95, 0.75)';
       ctx.fillRect(trackX, thumbY, 4, thumbH);
     }
 
     // Input box
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     roundRect(ctx, 24, 500, W - 48, 110, 14); ctx.fill();
-    ctx.strokeStyle = 'rgba(120, 180, 255, 0.55)';
+    ctx.strokeStyle = 'rgba(214, 68, 46, 0.55)';
     ctx.lineWidth = 2;
     roundRect(ctx, 24, 500, W - 48, 110, 14); ctx.stroke();
 
@@ -229,7 +229,7 @@ export class WristPanel {
       if (name === 'scrollDown') disabled = !scrollable || scrollOffset <= 0;
 
       let bg = 'rgba(255, 255, 255, 0.10)';
-      if (isActive) bg = 'rgba(74, 124, 255, 0.7)';
+      if (isActive) bg = 'rgba(214, 68, 46, 0.75)';
       else if (isHover) bg = 'rgba(255, 255, 255, 0.22)';
       if (disabled) bg = 'rgba(70, 70, 90, 0.45)';
 
@@ -331,7 +331,7 @@ export class Keyboard {
     );
     const plateGeo = new THREE.PlaneGeometry(widest + padX, totalH + padY);
     const plateMat = new THREE.MeshBasicMaterial({
-      color: 0x0a0a18, transparent: true, opacity: 0.78, side: THREE.DoubleSide,
+      color: 0x1a1410, transparent: true, opacity: 0.78, side: THREE.DoubleSide,
     });
     const plate = new THREE.Mesh(plateGeo, plateMat);
     plate.position.set(0, 0, -0.004);
@@ -367,11 +367,11 @@ export class Keyboard {
     const ctx = key.ctx;
     const W = key.canvas.width, H = key.canvas.height;
 
-    let bg = 'rgba(20, 20, 36, 0.95)';
-    if (key.isSpecial) bg = 'rgba(40, 50, 90, 0.95)';
-    if (key.value === '__SHIFT__' && this.shift) bg = 'rgba(120, 180, 255, 0.9)';
-    if (key.pressed) bg = 'rgba(180, 220, 255, 0.95)';
-    else if (key.hover) bg = 'rgba(74, 124, 255, 0.9)';
+    let bg = 'rgba(34, 28, 22, 0.95)';
+    if (key.isSpecial) bg = 'rgba(70, 52, 40, 0.95)';
+    if (key.value === '__SHIFT__' && this.shift) bg = 'rgba(201, 130, 92, 0.9)';
+    if (key.pressed) bg = 'rgba(230, 190, 160, 0.95)';
+    else if (key.hover) bg = 'rgba(214, 68, 46, 0.9)';
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = bg;
@@ -445,7 +445,7 @@ export function makePointerRay() {
     new THREE.Vector3(0, 0, -1),
   ]);
   const mat = new THREE.LineBasicMaterial({
-    color: 0x7eb8ff, transparent: true, opacity: 0.85, depthTest: false,
+    color: 0xC15F3C, transparent: true, opacity: 0.85, depthTest: false,
   });
   const line = new THREE.Line(geo, mat);
   line.scale.z = 2;

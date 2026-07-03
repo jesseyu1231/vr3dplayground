@@ -194,7 +194,7 @@ export function loadMixamoFromFile(file, onSuccess, onError) {
     (gltf) => {
       URL.revokeObjectURL(url);
       setMixamoModel(gltf.scene);
-      console.log('[Character] model loaded and set ✓');
+      console.log('[Character] model loaded and set');
       if (onSuccess) onSuccess();
     },
     undefined,
@@ -217,7 +217,7 @@ export function loadMixamoFromBuffer(buf, name, onSuccess, onError) {
     (gltf) => {
       URL.revokeObjectURL(blobUrl);
       setMixamoModel(gltf.scene);
-      console.log('[Character] model restored and set ✓');
+      console.log('[Character] model restored and set');
       if (onSuccess) onSuccess();
     },
     undefined,

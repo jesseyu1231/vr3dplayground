@@ -2,7 +2,7 @@
  * undo.js — undo/redo stack and action application.
  */
 import { scene, importedObjects, userLights, selectedObject, userContentGroup } from './state.js';
-import { applyEnvPreset, envPresets, envIndex, setEnvIndex } from './environment.js';
+import { applyWorldDescriptor } from './templates.js';
 import { refreshAssetPanel } from './assetpanel.js';
 import { deleteDocent, restoreDocent } from './humanoid.js';
 
@@ -86,6 +86,16 @@ function applyAction(action, isRedo) {
         if (idx !== -1) importedObjects.splice(idx, 1);
         if (selectedObject === action.obj) document.dispatchEvent(new CustomEvent('deselect-all'));
       }
+      break;
+    }
+    case 'object_visibility': {
+      // Scene-keep show/hide of an imported object. action.visible holds the state to
+      // restore; we swap in the current state so the same record drives undo and redo.
+      const obj = importedObjects.find(o => o.userData.id === action.id);
+      if (!obj) break;
+      const current = obj.visible;
+      obj.visible = action.visible;
+      action.visible = current;
       break;
     }
     case 'object_delete': {
@@ -188,10 +198,10 @@ function applyAction(action, isRedo) {
       break;
     }
     case 'env_change': {
-      const target = isRedo ? action.newIndex : action.oldIndex;
-      setEnvIndex(target);
-      applyEnvPreset(envPresets[target]);
-      document.getElementById('env-btn').textContent = '\u2600 ' + envPresets[target].name;
+      // action carries full world descriptors (template + mood + skybox); applyWorldDescriptor
+      // updates geometry, lights, sky, and the mood label in one shot.
+      const world = isRedo ? action.newWorld : action.oldWorld;
+      if (world) applyWorldDescriptor(world, { remote: true, push: false });
       break;
     }
   }
